@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Gaffe Pack — Staff App</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --black:#0e0d0b;--black2:#1a1916;--black3:#242320;
+  --cream:#f0ead8;--cream2:#c8be9e;--cream3:#8a8168;
+  --pink:#e91e8c;--pink2:#c4177a;--pink-bg:rgba(233,30,140,0.12);--pink-bd:rgba(233,30,140,0.3);
+  --red-bg:rgba(192,57,43,0.15);--red-bd:rgba(192,57,43,0.3);
+  --green:#27ae60;--green-bg:rgba(39,174,96,0.12);--green-bd:rgba(39,174,96,0.3);
+  --blue-bg:rgba(41,128,185,0.12);--blue-bd:rgba(41,128,185,0.3);--blue:#2980b9;
+  --amber:#e67e22;--amber-bg:rgba(230,126,34,0.12);--amber-bd:rgba(230,126,34,0.3);
+  --bd:rgba(240,234,216,0.1);--bd2:rgba(240,234,216,0.22);
+  --r:10px;--rs:6px;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'Inter',-apple-system,sans-serif;
+}
+body{font-family:var(--sans);background:var(--black);color:var(--cream);min-height:100vh;}
+
+/* AUTH */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.auth-wrap{background:var(--black2);border:1px solid var(--bd2);border-radius:14px;padding:38px;max-width:430px;width:100%;}
+.auth-logo{font-family:var(--serif);font-size:28px;font-weight:900;letter-spacing:.02em;line-height:1;margin-bottom:4px;}
+.auth-logo span{color:var(--pink);}
+.auth-sub{font-size:11px;color:var(--cream3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:28px;}
+.auth-tabs{display:flex;border:1px solid var(--bd2);border-radius:var(--rs);overflow:hidden;margin-bottom:22px;}
+.atab{flex:1;padding:9px;font-size:12px;background:transparent;border:none;cursor:pointer;color:var(--cream3);font-family:var(--sans);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+.atab.active{background:var(--pink);color:#fff;}
+.fl{display:block;font-size:11px;color:var(--cream3);margin-bottom:4px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;}
+.fi{width:100%;font-size:14px;padding:10px 13px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--black3);color:var(--cream);font-family:var(--sans);margin-bottom:13px;}
+.fi:focus{outline:none;border-color:var(--pink2);}
+.btn-p{width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--pink);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-family:var(--sans);letter-spacing:.03em;margin-top:2px;}
+.btn-p:hover{background:var(--pink2);}
+.btn-g{width:100%;padding:9px;font-size:13px;background:transparent;color:var(--cream3);border:1px solid var(--bd);border-radius:var(--rs);cursor:pointer;font-family:var(--sans);margin-top:8px;}
+.btn-g:hover{border-color:var(--bd2);color:var(--cream2);}
+.aerr{font-size:12px;color:#e74c3c;margin:5px 0;display:none;}
+.amsg{font-size:12px;color:var(--green);margin:5px 0;display:none;}
+.alink{font-size:12px;color:var(--cream3);text-align:center;margin-top:18px;padding-top:18px;border-top:1px solid var(--bd);}
+.alink a{color:var(--pink);cursor:pointer;text-decoration:none;}
+.sqlbox{width:100%;height:135px;font-size:10px;font-family:monospace;padding:10px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--black3);color:var(--cream2);resize:none;margin-top:7px;}
+
+/* APP */
+#app{display:none;max-width:720px;margin:0 auto;padding:0 16px 48px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 0 14px;border-bottom:1px solid var(--bd);margin-bottom:22px;}
+.tb-logo{font-family:var(--serif);font-size:22px;font-weight:900;letter-spacing:.02em;line-height:1;}
+.tb-logo span{color:var(--pink);}
+.tb-sub{font-size:10px;color:var(--cream3);letter-spacing:.07em;text-transform:uppercase;margin-top:4px;display:flex;align-items:center;gap:5px;}
+.dbdot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.tbr{display:flex;align-items:center;gap:8px;}
+.mtog{display:flex;border:1px solid var(--bd2);border-radius:var(--rs);overflow:hidden;}
+.mbtn{padding:7px 14px;font-size:11px;background:transparent;border:none;cursor:pointer;color:var(--cream3);font-family:var(--sans);font-weight:600;letter-spacing:.05em;text-transform:uppercase;}
+.mbtn.active{background:var(--pink);color:#fff;}
+.sobtn{padding:7px 11px;font-size:11px;background:transparent;border:1px solid var(--bd);border-radius:var(--rs);cursor:pointer;color:var(--cream3);font-family:var(--sans);font-weight:500;letter-spacing:.04em;text-transform:uppercase;}
+.sobtn:hover{border-color:var(--bd2);color:var(--cream);}
+
+/* TABS */
+.tabbar{display:flex;border-bottom:1px solid var(--bd);margin-bottom:22px;overflow-x:auto;}
+.tabbar::-webkit-scrollbar{display:none;}
+.tab{padding:10px 15px;font-size:11px;cursor:pointer;color:var(--cream3);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:var(--sans);font-weight:600;letter-spacing:.06em;text-transform:uppercase;}
+.tab.active{color:var(--pink);border-bottom-color:var(--pink);}
+
+/* LAYOUT */
+.sec{margin-bottom:26px;}
+.sech{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.sect{font-family:var(--serif);font-size:18px;font-weight:700;color:var(--cream);}
+.card{background:var(--black2);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;margin-bottom:12px;}
+.div{height:1px;background:var(--bd);margin:18px 0;}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.hidden{display:none!important;}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border:1px solid;}
+.bp{background:var(--pink-bg);color:var(--pink);border-color:var(--pink-bd);}
+.bg{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
+.bb{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bd);}
+.br{background:var(--red-bg);color:#e74c3c;border-color:var(--red-bd);}
+.bm{background:var(--black3);color:var(--cream3);border-color:var(--bd);}
+.ba{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd);}
+
+/* BUTTONS */
+.addbtn{font-size:11px;padding:7px 13px;border:1px solid var(--bd2);border-radius:var(--rs);background:transparent;color:var(--cream3);cursor:pointer;font-family:var(--sans);font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+.addbtn:hover{border-color:var(--pink-bd);color:var(--pink);}
+.addbtn.pk{background:var(--pink-bg);color:var(--pink);border-color:var(--pink-bd);}
+.subbtn{width:100%;padding:11px;font-size:13px;font-weight:600;border:1px solid var(--bd2);border-radius:var(--rs);background:transparent;color:var(--cream2);cursor:pointer;font-family:var(--sans);}
+.subbtn:hover{border-color:var(--cream2);}
+.subbtn.pri{background:var(--pink);color:#fff;border-color:var(--pink);}
+.subbtn.pri:hover{background:var(--pink2);}
+.subbtn.suc{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
+.subbtn.dan{background:var(--red-bg);color:#e74c3c;border-color:var(--red-bd);}
+.icbtn{font-size:11px;padding:5px 11px;border:1px solid var(--bd);border-radius:var(--rs);background:transparent;color:var(--cream3);cursor:pointer;font-family:var(--sans);}
+.icbtn:hover{border-color:var(--bd2);color:var(--cream);}
+.icbtn.del:hover{border-color:var(--red-bd);color:#e74c3c;}
+.icbtn.qr{border-color:var(--pink-bd);color:var(--pink);}
+.icbtn.qr:hover{background:var(--pink-bg);}
+
+/* FORM */
+.fr{margin-bottom:13px;}
+.fr label{display:block;font-size:11px;color:var(--cream3);margin-bottom:4px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;}
+.fr input,.fr textarea,.fr select,.sel{width:100%;font-size:13px;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--black3);color:var(--cream);font-family:var(--sans);}
+.fr input:focus,.fr textarea:focus,.fr select:focus,.sel:focus{outline:none;border-color:var(--pink2);}
+.fr textarea{height:72px;resize:none;}
+.fhint{font-size:11px;color:var(--cream3);margin-bottom:12px;line-height:1.5;}
+
+/* STATS */
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px;}
+.statcard{background:var(--black2);border:1px solid var(--bd);border-radius:var(--r);padding:16px;position:relative;overflow:hidden;}
+.statcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--pink);}
+.statlbl{font-size:10px;color:var(--cream3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px;}
+.statval{font-family:var(--serif);font-size:28px;font-weight:700;color:var(--cream);line-height:1;}
+.statsub{font-size:11px;color:var(--pink);margin-top:5px;}
+
+/* SHOW CARDS */
+.gigcard{background:var(--black2);border:1px solid var(--bd);border-radius:var(--r);padding:15px 17px;margin-bottom:12px;transition:border-color .15s;}
+.gigcard:hover{border-color:var(--bd2);}
+.gigtitle{font-size:15px;font-weight:600;color:var(--cream);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.bigshow{font-size:10px;padding:3px 8px;border-radius:20px;background:var(--pink-bg);color:var(--pink);border:1px solid var(--pink-bd);font-weight:600;}
+.gigmeta{font-size:12px;color:var(--cream3);margin-top:3px;}
+.gigroles{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px;}
+.gigavail{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;}
+.achip{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+.gigfoot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px;}
+.btnrow{display:flex;gap:7px;}
+
+/* ROTA */
+.rotagrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
+.rotacard{background:var(--black2);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;}
+.rotashow{font-size:13px;font-weight:600;color:var(--cream);}
+.rotadate{font-size:11px;color:var(--cream3);margin:3px 0 10px;letter-spacing:.03em;}
+.rotarow{display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:6px;gap:6px;}
+.rotaname{color:var(--cream2);}
+.unfilled{color:var(--cream3);font-style:italic;opacity:.6;}
+
+/* ANNOUNCEMENTS */
+.anncard{background:var(--black2);border:1px solid var(--bd);border-left:3px solid var(--pink);border-radius:var(--r);padding:15px 17px;margin-bottom:12px;}
+.anntitle{font-size:14px;font-weight:600;color:var(--cream);}
+.annbody{font-size:13px;color:var(--cream2);margin-top:6px;line-height:1.65;}
+.annmeta{font-size:11px;color:var(--cream3);margin-top:8px;letter-spacing:.04em;text-transform:uppercase;}
+
+/* CLOCK */
+.labcard{background:var(--black3);border:1px solid var(--bd);border-top:2px solid var(--pink);border-radius:var(--r);padding:18px 20px;margin-bottom:16px;}
+.lablbl{font-size:10px;color:var(--cream3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;}
+.labtot{font-family:var(--serif);font-size:34px;font-weight:700;color:var(--pink);line-height:1;}
+.labbr{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--bd);}
+.lblbl{font-size:10px;color:var(--cream3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+.lbval{font-size:17px;font-weight:600;color:var(--cream);}
+.clocklist{background:var(--black2);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:12px;}
+.clockrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd);flex-wrap:wrap;}
+.clockrow:last-child{border-bottom:none;}
+.cname{font-size:14px;font-weight:600;color:var(--cream);}
+.crole{font-size:10px;color:var(--cream3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+.ctime{font-size:11px;color:var(--cream3);margin-top:3px;}
+.ccost{font-size:14px;font-weight:600;color:var(--pink);min-width:54px;text-align:right;}
+.cact{display:flex;align-items:center;gap:8px;}
+.cbtn{font-size:11px;padding:6px 13px;border-radius:var(--rs);border:1px solid;background:transparent;cursor:pointer;font-family:var(--sans);font-weight:600;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;}
+.cbtn.in{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
+.cbtn.out{background:var(--red-bg);color:#e74c3c;border-color:var(--red-bd);}
+.allcrow{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd);}
+.allcrow:last-child{border-bottom:none;}
+
+/* AVAIL */
+.availrow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--bd);flex-wrap:wrap;}
+.availrow:last-child{border-bottom:none;}
+.availname{font-size:13px;font-weight:600;color:var(--cream);min-width:100px;}
+
+/* TIMESHEETS */
+.tsblock{background:var(--black2);border:1px solid var(--bd);border-top:2px solid var(--pink);border-radius:var(--r);padding:16px 18px;margin-bottom:16px;}
+.tsname{font-size:16px;font-weight:600;color:var(--cream);margin-bottom:2px;}
+.tsmeta{font-size:12px;color:var(--cream3);margin-bottom:12px;}
+.tsentry{padding:10px 0;border-bottom:1px solid var(--bd);}
+.tsentry:last-child{border-bottom:none;}
+.tsetop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.tsedate{font-size:12px;color:var(--cream3);}
+.tsedesc{font-size:13px;color:var(--cream2);margin-top:3px;}
+.tsehrs{font-size:14px;font-weight:600;color:var(--pink);white-space:nowrap;}
+.tsecost{font-size:11px;color:var(--cream3);text-align:right;margin-top:2px;}
+.tstots{display:flex;gap:20px;padding-top:14px;margin-top:4px;border-top:1px solid var(--bd);}
+.tstot .tl{font-size:10px;color:var(--cream3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+.tstot .tv{font-size:20px;font-weight:700;color:var(--pink);font-family:var(--serif);}
+
+/* MODALS */
+.movl{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;}
+.mbox{background:var(--black2);border:1px solid var(--bd2);border-radius:14px;padding:30px;max-width:340px;width:100%;text-align:center;}
+.mbox-lg{background:var(--black2);border:1px solid var(--bd2);border-radius:14px;padding:28px;max-width:500px;width:100%;}
+.mtitle{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--cream);margin-bottom:3px;}
+.msub{font-size:12px;color:var(--cream3);margin-bottom:20px;}
+.mhint{font-size:11px;color:var(--cream3);margin-top:12px;line-height:1.6;}
+.hfrow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd);gap:12px;}
+.hfrow:last-child{border-bottom:none;}
+.hfname{font-size:13px;font-weight:600;color:var(--cream);}
+.hfdate{font-size:12px;color:var(--cream3);margin-top:2px;}
+.hfchk{accent-color:var(--pink);width:17px;height:17px;cursor:pointer;flex-shrink:0;}
+
+/* QR PAGE */
+#qr-page{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px;flex-direction:column;}
+#qr-page.active{display:flex;}
+.qrlogo{font-family:var(--serif);font-size:26px;font-weight:900;margin-bottom:4px;text-align:center;}
+.qrlogo span{color:var(--pink);}
+.qrshow{font-size:17px;font-weight:600;color:var(--cream);text-align:center;margin-bottom:3px;}
+.qrdate{font-size:13px;color:var(--cream3);text-align:center;margin-bottom:24px;}
+
+/* MISC */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--pink);color:#fff;padding:11px 24px;border-radius:var(--rs);font-size:13px;font-weight:600;z-index:1000;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;}
+.empty{font-size:13px;color:var(--cream3);padding:4px 0;}
+.loading{text-align:center;padding:32px;color:var(--cream3);font-size:13px;}
+.selrow{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+@media(max-width:500px){.statval{font-size:22px;}.two{grid-template-columns:1fr;}.three{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+ <div class="auth-wrap">
+  <div class="auth-logo">THE <span>GAFFE</span> PACK</div>
+  <div class="auth-sub">Staff Management App</div>
+  <div id="setup-panel" class="hidden">
+   <p style="font-size:13px;color:var(--cream3);margin-bottom:16px;line-height:1.6">First time setup — enter your Supabase details then run the SQL below.</p>
+   <label class="fl">Supabase URL</label><input class="fi" type="text" id="sb-url" placeholder="https://xxxx.supabase.co">
+   <label class="fl">Supabase anon key</label><input class="fi" type="text" id="sb-key" placeholder="eyJ...">
+   <label class="fl" style="margin-top:4px">Run this SQL in Supabase SQL Editor:</label>
+   <textarea class="sqlbox" readonly onclick="this.select()">create table if not exists profiles (id uuid primary key references auth.users(id), name text, role text default 'staff', hourly_rate numeric default 0, created_at timestamptz default now());
+create table if not exists gigs (id uuid primary key default gen_random_uuid(), name text, date text, venue text, headfirst_url text, created_at timestamptz default now());
+create table if not exists availability (id uuid primary key default gen_random_uuid(), user_id uuid references profiles(id) on delete cascade, gig_id uuid references gigs(id) on delete cascade);
+create table if not exists rota (id uuid primary key default gen_random_uuid(), gig_id uuid references gigs(id) on delete cascade, user_id uuid references profiles(id), staff_name text, role text);
+create table if not exists clock_events (id uuid primary key default gen_random_uuid(), gig_id uuid references gigs(id) on delete cascade, user_id uuid references profiles(id), staff_name text, direction text, ts timestamptz default now());
+create table if not exists announcements (id uuid primary key default gen_random_uuid(), title text, body text, created_at timestamptz default now());
+create table if not exists timesheets (id uuid primary key default gen_random_uuid(), user_id uuid references profiles(id) on delete cascade, staff_name text, date text, start_time text, end_time text, hours numeric, description text, created_at timestamptz default now());
+alter table profiles enable row level security; alter table gigs enable row level security; alter table availability enable row level security; alter table rota enable row level security; alter table clock_events enable row level security; alter table announcements enable row level security; alter table timesheets enable row level security;
+create policy "all" on profiles for all using(true) with check(true);
+create policy "all" on gigs for all using(true) with check(true);
+create policy "all" on availability for all using(true) with check(true);
+create policy "all" on rota for all using(true) with check(true);
+create policy "all" on clock_events for all using(true) with check(true);
+create policy "all" on announcements for all using(true) with check(true);
+create policy "all" on timesheets for all using(true) with check(true);</textarea>
+   <button class="btn-p" onclick="saveConfig()" style="margin-top:12px">Save &amp; go to login</button>
+   <div class="aerr" id="cfg-err"></div>
+   <button class="btn-g" onclick="hideSetup()">Back to login</button>
+  </div>
+  <div id="login-panel">
+   <div class="auth-tabs">
+    <button class="atab active" id="atab-in" onclick="switchATab('in')">Sign in</button>
+    <button class="atab" id="atab-up" onclick="switchATab('up')">Create account</button>
+   </div>
+   <div id="form-in">
+    <label class="fl">Email</label><input class="fi" type="email" id="in-em" placeholder="your@email.com">
+    <label class="fl">Password</label><input class="fi" type="password" id="in-pw" placeholder="••••••••">
+    <div class="aerr" id="in-err"></div>
+    <button class="btn-p" onclick="doSignIn()">Sign in</button>
+   </div>
+   <div id="form-up" class="hidden">
+    <label class="fl">Your name</label><input class="fi" type="text" id="up-nm" placeholder="e.g. Jamie Smith">
+    <label class="fl">Email</label><input class="fi" type="email" id="up-em" placeholder="your@email.com">
+    <label class="fl">Password</label><input class="fi" type="password" id="up-pw" placeholder="minimum 6 characters">
+    <div class="aerr" id="up-err"></div><div class="amsg" id="up-msg"></div>
+    <button class="btn-p" onclick="doSignUp()">Create account</button>
+   </div>
+   <div class="alink">First time? <a onclick="showSetup()">Set up database connection</a></div>
+  </div>
+ </div>
+</div>
+
+<!-- QR PAGE -->
+<div id="qr-page">
+ <div class="qrlogo">THE <span>GAFFE</span> PACK</div>
+ <div id="qr-show" class="qrshow"></div>
+ <div id="qr-date" class="qrdate"></div>
+ <div id="qr-body" style="width:100%;max-width:360px"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- QR MODAL -->
+<div class="movl hidden" id="qr-modal">
+ <div class="mbox">
+  <div class="mtitle" id="qrm-t"></div><div class="msub" id="qrm-s"></div>
+  <canvas id="qr-canvas" style="border-radius:8px;margin:0 auto 18px"></canvas>
+  <button class="subbtn" onclick="closeModal('qr-modal')">Close</button>
+  <div class="mhint">Staff scan with phone camera to clock in/out for this show.</div>
+ </div>
+</div>
+
+<!-- HF MODAL -->
+<div class="movl hidden" id="hf-modal">
+ <div class="mbox-lg">
+  <div class="mtitle" style="text-align:left;margin-bottom:3px">Import from Headfirst</div>
+  <div style="font-size:12px;color:var(--cream3);margin-bottom:18px">Upcoming Gaffe shows found on Headfirst. Tick what you want to import.</div>
+  <div id="hf-res"><div class="loading">Fetching shows...</div></div>
+  <div class="two" style="margin-top:18px;gap:10px">
+   <button class="subbtn" onclick="closeModal('hf-modal')">Cancel</button>
+   <button class="subbtn pri" onclick="doImport()">Import selected</button>
+  </div>
+ </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+ <div class="topbar">
+  <div>
+   <div class="tb-logo">THE <span>GAFFE</span> PACK</div>
+   <div class="tb-sub"><span class="dbdot" id="dbdot"></span><span id="userlbl">Loading...</span></div>
+  </div>
+  <div class="tbr">
+   <div class="mtog hidden" id="mtog">
+    <button class="mbtn active" id="btn-mgr" onclick="switchMode('manager')">Manager</button>
+    <button class="mbtn" id="btn-staff" onclick="switchMode('staff')">Staff</button>
+   </div>
+   <button class="sobtn" onclick="doSignOut()">Sign out</button>
+  </div>
+ </div>
+
+ <!-- MANAGER -->
+ <div id="mgr-view">
+  <div class="tabbar">
+   <button class="tab active" onclick="showMTab('t-ov')">Overview</button>
+   <button class="tab" onclick="showMTab('t-rota')">Rota</button>
+   <button class="tab" onclick="showMTab('t-clock')">Sign In/Out</button>
+   <button class="tab" onclick="showMTab('t-ann')">Announcements</button>
+   <button class="tab" onclick="showMTab('t-ts')">Timesheets</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="t-ov">
+   <div class="statgrid">
+    <div class="statcard"><div class="statlbl">Upcoming shows</div><div class="statval" id="s-gigs">—</div></div>
+    <div class="statcard"><div class="statlbl">Staff members</div><div class="statval" id="s-staff">—</div></div>
+    <div class="statcard"><div class="statlbl">Clocked in now</div><div class="statval" id="s-clocked">—</div><div class="statsub" id="s-cost"></div></div>
+   </div>
+   <div class="sec">
+    <div class="sech">
+     <span class="sect">Upcoming Shows</span>
+     <div style="display:flex;gap:8px">
+      <button class="addbtn pk" onclick="openHF()">↓ Headfirst</button>
+      <button class="addbtn" onclick="toggle('gig-form')">+ Add show</button>
+     </div>
+    </div>
+    <div id="gig-form" class="card hidden" style="margin-bottom:14px">
+     <div class="two">
+      <div class="fr"><label>Show name</label><input type="text" id="ng-name" placeholder="Friday Night Showcase"></div>
+      <div class="fr"><label>Date</label><input type="date" id="ng-date"></div>
+     </div>
+     <div class="fr"><label>Venue / note</label><input type="text" id="ng-venue" placeholder="Main room"></div>
+     <p class="fhint">&#9733; Friday &amp; Saturday shows automatically get an Assistant Venue Manager slot.</p>
+     <button class="subbtn pri" onclick="addGig()">Add show</button>
+    </div>
+    <div id="gig-list"><div class="loading">Loading shows...</div></div>
+   </div>
+   <div class="sec">
+    <div class="sech"><span class="sect">Staff Availability</span></div>
+    <div class="card"><div id="avail-sum"><div class="loading">Loading...</div></div></div>
+   </div>
+  </div>
+
+  <!-- ROTA -->
+  <div id="t-rota" class="hidden">
+   <div class="sec">
+    <div class="sech">
+     <span class="sect">Rota</span>
+     <button class="addbtn" onclick="toggleRota()">&#9999; Build rota</button>
+    </div>
+    <div id="rota-form" class="card hidden" style="margin-bottom:16px">
+     <p style="font-size:13px;color:var(--cream3);margin-bottom:16px">Assign available staff to each role. Only staff who've submitted availability are shown.</p>
+     <div id="rota-assign"></div>
+     <button class="subbtn pri" onclick="publishRota()">Publish rota</button>
+    </div>
+    <div class="rotagrid" id="rota-display"><div class="loading">Loading...</div></div>
+   </div>
+  </div>
+
+  <!-- CLOCK -->
+  <div id="t-clock" class="hidden">
+   <div class="sec">
+    <div class="sech"><span class="sect">Sign In / Out</span></div>
+    <div class="selrow">
+     <label style="font-size:11px;color:var(--cream3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;white-space:nowrap">Show:</label>
+     <select class="sel" id="clock-sel" style="flex:1" onchange="renderClockPanel()"></select>
+     <button class="icbtn qr" onclick="showQRForSel()">QR Code</button>
+    </div>
+    <div id="lab-box"></div>
+    <div id="clock-panel"></div>
+    <div class="div"></div>
+    <div class="sech"><span class="sect" style="font-size:16px">All Show Costs</span></div>
+    <div id="all-costs"></div>
+   </div>
+  </div>
+
+  <!-- ANNOUNCEMENTS -->
+  <div id="t-ann" class="hidden">
+   <div class="sec">
+    <div class="sech">
+     <span class="sect">Announcements</span>
+     <button class="addbtn" onclick="toggle('ann-form')">+ Post</button>
+    </div>
+    <div id="ann-form" class="card hidden" style="margin-bottom:14px">
+     <div class="fr"><label>Title</label><input type="text" id="ann-title" placeholder="e.g. Uniform reminder"></div>
+     <div class="fr"><label>Message</label><textarea id="ann-body" placeholder="Write your message here..."></textarea></div>
+     <button class="subbtn pri" onclick="postAnn()">Post announcement</button>
+    </div>
+    <div id="ann-list"><div class="loading">Loading...</div></div>
+   </div>
+  </div>
+
+  <!-- TIMESHEETS -->
+  <div id="t-ts" class="hidden">
+   <div class="sec">
+    <div class="sech"><span class="sect">Ops &amp; Freelance Timesheets</span></div>
+    <div class="three" id="ts-stats" style="margin-bottom:22px"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+     <label style="font-size:11px;color:var(--cream3);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Person:</label>
+     <select class="sel" id="ts-pf" style="flex:1" onchange="renderTSMgr()"><option value="">All staff</option></select>
+     <label style="font-size:11px;color:var(--cream3);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Period:</label>
+     <select class="sel" id="ts-per" style="flex:1" onchange="renderTSMgr()">
+      <option value="month" selected>This month</option>
+      <option value="week">This week</option>
+      <option value="all">All time</option>
+     </select>
+    </div>
+    <div id="ts-mgr"><div class="loading">Loading...</div></div>
+   </div>
+  </div>
+ </div>
+
+ <!-- STAFF -->
+ <div id="staff-view" class="hidden">
+  <div class="tabbar">
+   <button class="tab active" onclick="showSTab('st-ann')">Announcements</button>
+   <button class="tab" onclick="showSTab('st-avail')">My Availability</button>
+   <button class="tab" onclick="showSTab('st-rota')">Rota</button>
+   <button class="tab" onclick="showSTab('st-clock')">Sign In/Out</button>
+   <button class="tab" onclick="showSTab('st-ts')">My Hours</button>
+  </div>
+  <div id="st-ann"><div id="staff-ann"><div class="loading">Loading...</div></div></div>
+  <div id="st-avail" class="hidden">
+   <div class="card">
+    <p style="font-size:13px;color:var(--cream3);margin-bottom:16px">Tick the shows you can work, then hit submit.</p>
+    <div id="staff-gigs"></div>
+    <button class="subbtn pri" style="margin-top:18px" onclick="submitAvail()">Submit availability</button>
+   </div>
+  </div>
+  <div id="st-rota" class="hidden"><div class="rotagrid" id="staff-rota"></div></div>
+  <div id="st-clock" class="hidden">
+   <div class="card">
+    <p style="font-size:13px;color:var(--cream3);margin-bottom:16px">Select a show to sign in or out — or scan the QR code at the venue.</p>
+    <div class="fr"><label>Show</label><select class="sel" id="sc-gig"><option value="">— select show —</option></select></div>
+    <div id="sc-status" style="font-size:13px;color:var(--cream3);margin-bottom:14px;min-height:18px"></div>
+    <div class="two">
+     <button class="subbtn suc" onclick="staffClock('in')">Sign in</button>
+     <button class="subbtn dan" onclick="staffClock('out')">Sign out</button>
+    </div>
+   </div>
+  </div>
+  <div id="st-ts" class="hidden">
+   <div class="card" style="margin-bottom:14px">
+    <p style="font-size:13px;color:var(--cream3);margin-bottom:16px">Log your ops or freelance hours below.</p>
+    <div class="fr"><label>Date</label><input type="date" id="ts-date"></div>
+    <div class="two">
+     <div class="fr"><label>Start time</label><input type="time" id="ts-start"></div>
+     <div class="fr"><label>End time</label><input type="time" id="ts-end"></div>
+    </div>
+    <div class="fr"><label>What were you working on?</label><input type="text" id="ts-desc" placeholder="e.g. Box office admin, social media, venue prep..."></div>
+    <div id="ts-log-st" style="font-size:12px;margin-bottom:8px;min-height:16px"></div>
+    <button class="subbtn pri" onclick="logTS()">Log hours</button>
+   </div>
+   <div class="sech"><span class="sect" style="font-size:16px">My timesheet</span></div>
+   <div id="my-ts"><div class="loading">Loading...</div></div>
+  </div>
+ </div>
+</div>
+
+<script>
+const RATES={'Bar staff':13,'Venue manager':13.5,'Assistant venue manager':13.25};
+const ROLES_STD=['Venue manager','Bar staff','Bar staff'];
+const ROLES_BIG=['Venue manager','Assistant venue manager','Bar staff','Bar staff'];
+const HF_URL='https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club';
+
+let db=null,me=null,myP=null;
+let gigs=[],avail=[],rota=[],clocks=[],anns=[],profiles=[],sheets=[];
+let selIds=[];
+let mTab='t-ov',sTab='st-ann';
+let hfShows=[];
+
+const isBig=d=>{const v=new Date(d).getDay();return v===5||v===6;};
+const rolesFor=g=>isBig(g.date)?ROLES_BIG:ROLES_STD;
+const fmt=d=>new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+const fmtFull=d=>new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+const fmtT=t=>t?new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'—';
+const fc=n=>'£'+Number(n).toFixed(2);
+const calcH=(s,e)=>{const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);return Math.round(((eh*60+em)-(sh*60+sm))/60*100)/100;};
+function toggle(id){document.getElementById(id).classList.toggle('hidden');}
+function closeModal(id){document.getElementById(id).classList.add('hidden');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
+function setErr(id,m){const e=document.getElementById(id);if(!e)return;e.textContent=m;e.style.display=m?'block':'none';}
+function setMsg(id,m){const e=document.getElementById(id);if(!e)return;e.textContent=m;e.style.display=m?'block':'none';}
+function rbadge(r){if(r==='Venue manager')return'<span class="badge bb">VM</span>';if(r==='Assistant venue manager')return'<span class="badge bp">Asst. Mgr</span>';return'<span class="badge bm">Bar</span>';}
+
+// CLOCK HELPERS
+function isClocked(gid,name){const e=clocks.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));return e.length>0&&e[e.length-1].direction==='in';}
+function isClockedUID(gid,uid){const e=clocks.filter(e=>e.gig_id===gid&&e.user_id===uid).sort((a,b)=>new Date(a.ts)-new Date(b.ts));return e.length>0&&e[e.length-1].direction==='in';}
+function hoursW(gid,name){const evts=clocks.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));let tot=0,inT=null;evts.forEach(e=>{if(e.direction==='in')inT=new Date(e.ts);else if(e.direction==='out'&&inT){tot+=new Date(e.ts)-inT;inT=null;}});if(inT)tot+=Date.now()-inT;return tot/3600000;}
+function costFor(gid,name){const p=rota.find(r=>r.gig_id===gid&&r.staff_name===name);return hoursW(gid,name)*(p?RATES[p.role]||13:13);}
+function lastEvt(gid,name){const e=clocks.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));return e.length?e[e.length-1]:null;}
+
+// CONFIG
+function getSB(){return{url:localStorage.getItem('gp-url'),key:localStorage.getItem('gp-key')};}
+function showSetup(){document.getElementById('setup-panel').classList.remove('hidden');document.getElementById('login-panel').classList.add('hidden');}
+function hideSetup(){document.getElementById('setup-panel').classList.add('hidden');document.getElementById('login-panel').classList.remove('hidden');}
+async function saveConfig(){
+  const url=document.getElementById('sb-url').value.trim(),key=document.getElementById('sb-key').value.trim();
+  if(!url||!key){setErr('cfg-err','Please fill in both fields.');return;}
+  try{const c=supabase.createClient(url,key);const{error}=await c.from('profiles').select('id').limit(1);if(error&&!error.message.includes('does not exist'))throw error;localStorage.setItem('gp-url',url);localStorage.setItem('gp-key',key);db=c;hideSetup();toast('Connected!');}
+  catch(e){setErr('cfg-err','Could not connect — check URL and key.');}
+}
+
+// AUTH
+function switchATab(t){document.getElementById('form-in').classList.toggle('hidden',t!=='in');document.getElementById('form-up').classList.toggle('hidden',t!=='up');document.getElementById('atab-in').classList.toggle('active',t==='in');document.getElementById('atab-up').classList.toggle('active',t==='up');}
+async function doSignIn(){
+  const em=document.getElementById('in-em').value.trim(),pw=document.getElementById('in-pw').value;
+  if(!em||!pw){setErr('in-err','Please fill in email and password.');return;}
+  setErr('in-err','');
+  const{error}=await db.auth.signInWithPassword({email:em,password:pw});
+  if(error)setErr('in-err',error.message);
+}
+async function doSignUp(){
+  const nm=document.getElementById('up-nm').value.trim(),em=document.getElementById('up-em').value.trim(),pw=document.getElementById('up-pw').value;
+  if(!nm||!em||!pw){setErr('up-err','Please fill in all fields.');return;}
+  setErr('up-err','');
+  const{data,error}=await db.auth.signUp({email:em,password:pw});
+  if(error){setErr('up-err',error.message);return;}
+  if(data.user){await db.from('profiles').upsert({id:data.user.id,name:nm,role:'staff',hourly_rate:0});setMsg('up-msg','Account created! Check your email to verify, then sign in.');switchATab('in');}
+}
+async function doSignOut(){await db.auth.signOut();location.reload();}
+
+// INIT
+window.addEventListener('DOMContentLoaded',async()=>{
+  const params=new URLSearchParams(location.search);
+  const qrGig=params.get('qr');
+  if(qrGig){await initQR(qrGig);return;}
+  const{url,key}=getSB();
+  if(!url||!key){showSetup();return;}
+  db=supabase.createClient(url,key);
+  db.auth.onAuthStateChange(async(event,session)=>{
+    if(session){
+      me=session.user;
+      const{data}=await db.from('profiles').select('*').eq('id',me.id).single();
+      myP=data||{name:me.email,role:'staff',hourly_rate:0};
+      await loadAll();
+      document.getElementById('auth-screen').style.display='none';
+      document.getElementById('app').style.display='block';
+      document.getElementById('userlbl').textContent=myP.name||me.email;
+      const isMgr=myP.role==='manager';
+      if(isMgr)document.getElementById('mtog').classList.remove('hidden');
+      if(!isMgr)switchMode('staff');
+      const td=document.getElementById('ts-date');if(td)td.value=new Date().toISOString().split('T')[0];
+    }
+  });
+});
+
+// DATA
+async function loadAll(){
+  try{
+    const[g,a,r,c,an,p,ts]=await Promise.all([
+      db.from('gigs').select('*').order('date'),
+      db.from('availability').select('*'),
+      db.from('rota').select('*'),
+      db.from('clock_events').select('*').order('ts'),
+      db.from('announcements').select('*').order('created_at',{ascending:false}),
+      db.from('profiles').select('*'),
+      db.from('timesheets').select('*').order('date',{ascending:false}),
+    ]);
+    gigs=g.data||[];avail=a.data||[];rota=r.data||[];clocks=c.data||[];anns=an.data||[];profiles=p.data||[];sheets=ts.data||[];
+    renderAll();
+  }catch(e){console.error(e);}
+}
+
+function renderAll(){
+  renderStats();renderGigs();renderAvail();renderRota();renderAnns();
+  if(mTab==='t-clock'){renderClockSel();renderClockPanel();renderAllCosts();}
+  if(mTab==='t-ts'){renderTSStats();renderTSFilter();renderTSMgr();}
+}
+
+// STATS
+function renderStats(){
+  document.getElementById('s-gigs').textContent=gigs.length;
+  document.getElementById('s-staff').textContent=profiles.length;
+  let cl=0,lc=0;gigs.forEach(g=>rota.filter(r=>r.gig_id===g.id).forEach(p=>{if(isClocked(g.id,p.staff_name)){cl++;lc+=costFor(g.id,p.staff_name);}}));
+  document.getElementById('s-clocked').textContent=cl;
+  document.getElementById('s-cost').textContent=cl>0?fc(lc)+' running':'';
+}
+
+// GIGS
+function renderGigs(){
+  const el=document.getElementById('gig-list');
+  if(!gigs.length){el.innerHTML='<p class="empty">No shows yet — add one above or import from Headfirst.</p>';return;}
+  el.innerHTML=gigs.map(g=>{
+    const av=avail.filter(a=>a.gig_id===g.id);
+    const names=av.map(a=>{const p=profiles.find(x=>x.id===a.user_id);return p?p.name:null;}).filter(Boolean);
+    const roles=rolesFor(g),big=isBig(g.date);
+    return`<div class="gigcard">
+<div class="gigtitle">${g.name}${big?'<span class="bigshow">&#9733; Big show</span>':''}</div>
+<div class="gigmeta">${fmt(g.date)} &middot; ${g.venue||'TBC'}${g.headfirst_url?` &middot; <a href="${g.headfirst_url}" target="_blank" style="color:var(--pink);font-size:11px">Headfirst &#8599;</a>`:''}</div>
+<div class="gigroles">${roles.map(r=>rbadge(r)).join('')}</div>
+<div class="gigavail">${names.length?names.map(n=>`<span class="achip">${n}</span>`).join(''):'<span style="font-size:12px;color:var(--cream3)">No availability yet</span>'}</div>
+<div class="gigfoot">
+<span class="badge ${names.length>=roles.length?'bg':names.length>0?'ba':'br'}">${names.length}/${roles.length} available</span>
+<div class="btnrow">
+<button class="icbtn qr" onclick="showQRModal('${g.id}','${g.name.replace(/'/g,"\\'")}','${g.date}')">QR Code</button>
+<button class="icbtn del" onclick="deleteGig('${g.id}')">Remove</button>
+</div>
+</div>
+</div>`;
+  }).join('');
+}
+
+async function addGig(){
+  const name=document.getElementById('ng-name').value.trim(),date=document.getElementById('ng-date').value,venue=document.getElementById('ng-venue').value.trim()||'TBC';
+  if(!name||!date){toast('Please fill in show name and date.');return;}
+  const{data,error}=await db.from('gigs').insert({name,date,venue}).select().single();
+  if(error){toast('Error saving show.');return;}
+  gigs.push(data);gigs.sort((a,b)=>a.date.localeCompare(b.date));
+  ['ng-name','ng-date','ng-venue'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('gig-form').classList.add('hidden');
+  renderAll();toast('Show added!');
+}
+
+async function deleteGig(id){
+  if(!confirm('Remove this show?'))return;
+  await db.from('gigs').delete().eq('id',id);
+  gigs=gigs.filter(g=>g.id!==id);avail=avail.filter(a=>a.gig_id!==id);rota=rota.filter(r=>r.gig_id!==id);clocks=clocks.filter(c=>c.gig_id!==id);
+  renderAll();toast('Show removed.');
+}
+
+// AVAILABILITY
+function renderAvail(){
+  const el=document.getElementById('avail-sum');
+  const pw=profiles.filter(p=>avail.some(a=>a.user_id===p.id));
+  if(!pw.length){el.innerHTML='<p class="empty">No availability submitted yet.</p>';return;}
+  el.innerHTML=pw.map(p=>{
+    const ids=avail.filter(a=>a.user_id===p.id).map(a=>a.gig_id);
+    const tags=ids.map(id=>{const g=gigs.find(x=>x.id===id);return g?`<span class="achip" style="font-size:10px">${g.name.split(' ').slice(0,3).join(' ')}</span>`:''}).join('');
+    return`<div class="availrow"><span class="availname">${p.name}</span><div style="display:flex;gap:4px;flex-wrap:wrap">${tags||'<span class="empty">None</span>'}</div></div>`;
+  }).join('');
+}
+
+// ROTA
+function renderRota(){
+  const el=document.getElementById('rota-display');
+  if(!gigs.length){el.innerHTML='<p class="empty">No shows yet.</p>';return;}
+  el.innerHTML=gigs.map(g=>{
+    const asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);
+    return`<div class="rotacard">
+<div class="rotashow">${g.name}${big?` <span style="color:var(--pink);font-size:12px">&#9733;</span>`:''}</div>
+<div class="rotadate">${fmt(g.date)}</div>
+${rolesFor(g).map((role,ri)=>{const bi=rolesFor(g).slice(0,ri).filter(r=>r==='Bar staff').length;const p=role==='Bar staff'?asgn.filter(p=>p.role==='Bar staff')[bi]:asgn.find(p=>p.role===role);return`<div class="rotarow"><span class="rotaname">${p?p.staff_name:'<span class="unfilled">Unfilled</span>'}</span>${rbadge(role)}</div>`;}).join('')}
+</div>`;
+  }).join('');
+  renderStaffRota();
+}
+
+function renderRotaAssign(){
+  document.getElementById('rota-assign').innerHTML=gigs.map(g=>{
+    const av=avail.filter(a=>a.gig_id===g.id).map(a=>{const p=profiles.find(x=>x.id===a.user_id);return p?p.name:null;}).filter(Boolean);
+    const roles=rolesFor(g),asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);
+    return`<div style="margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid var(--bd)">
+<p style="font-size:14px;font-weight:600;color:var(--cream);margin-bottom:12px">${g.name}${big?` <span style="color:var(--pink)">&#9733;</span>`:''} <span style="font-weight:400;color:var(--cream3);font-size:12px">${fmt(g.date)}</span></p>
+${av.length?roles.map((role,idx)=>{const bi=roles.slice(0,idx).filter(r=>r==='Bar staff').length;const cur=role==='Bar staff'?(asgn.filter(p=>p.role==='Bar staff')[bi]||{}).staff_name:(asgn.find(p=>p.role===role)||{}).staff_name;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">${rbadge(role)}<select id="sel-${g.id}-${role}-${idx}" class="sel" style="flex:1"><option value="">— choose —</option>${av.map(n=>`<option ${cur===n?'selected':''}>${n}</option>`).join('')}</select></div>`;}).join(''):'<p class="empty">No staff have submitted availability for this show.</p>'}
+</div>`;
+  }).join('');
+}
+
+function toggleRota(){toggle('rota-form');if(!document.getElementById('rota-form').classList.contains('hidden'))renderRotaAssign();}
+
+async function publishRota(){
+  const newRota=[];
+  for(const g of gigs){rolesFor(g).forEach((role,idx)=>{const sel=document.getElementById(`sel-${g.id}-${role}-${idx}`);if(sel&&sel.value){const p=profiles.find(x=>x.name===sel.value);newRota.push({gig_id:g.id,user_id:p?.id||null,staff_name:sel.value,role});}});}
+  for(const g of gigs)await db.from('rota').delete().eq('gig_id',g.id);
+  if(newRota.length)await db.from('rota').insert(newRota);
+  rota=newRota;document.getElementById('rota-form').classList.add('hidden');
+  renderRota();toast('Rota published!');
+}
+
+// ANNOUNCEMENTS
+function renderAnns(){
+  const html=anns.map(a=>`<div class="anncard"><div class="anntitle">${a.title}</div><div class="annbody">${a.body}</div><div class="annmeta">${fmtFull(a.created_at)}</div></div>`).join('')||'<p class="empty">No announcements yet.</p>';
+  ['ann-list','staff-ann'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=html;});
+}
+
+async function postAnn(){
+  const title=document.getElementById('ann-title').value.trim(),body=document.getElementById('ann-body').value.trim();
+  if(!title||!body){toast('Please fill in title and message.');return;}
+  const{data,error}=await db.from('announcements').insert({title,body,created_at:new Date().toISOString()}).select().single();
+  if(error){toast('Error posting.');return;}
+  anns.unshift(data);['ann-title','ann-body'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ann-form').classList.add('hidden');renderAnns();toast('Announcement posted!');
+}
+
+// CLOCK MANAGER
+function renderClockSel(){const sel=document.getElementById('clock-sel'),cur=sel.value;sel.innerHTML=gigs.map(g=>`<option value="${g.id}" ${g.id===cur?'selected':''}>${g.name} — ${fmt(g.date)}</option>`).join('');}
+function renderClockPanel(){
+  const gigId=document.getElementById('clock-sel').value||(gigs[0]&&gigs[0].id);if(!gigId)return;
+  const g=gigs.find(x=>x.id===gigId),asgn=rota.filter(r=>r.gig_id===gigId);
+  let vmC=0,avmC=0,barC=0,tot=0;
+  asgn.forEach(p=>{const c=costFor(gigId,p.staff_name);tot+=c;if(p.role==='Venue manager')vmC+=c;else if(p.role==='Assistant venue manager')avmC+=c;else barC+=c;});
+  document.getElementById('lab-box').innerHTML=`<div class="labcard"><div class="lablbl">Total labour cost &mdash; ${g?g.name:''}</div><div class="labtot">${fc(tot)}</div><div class="labbr"><div><div class="lblbl">Venue manager</div><div class="lbval">${fc(vmC)}</div></div><div><div class="lblbl">Asst. manager</div><div class="lbval">${fc(avmC)}</div></div><div><div class="lblbl">Bar staff</div><div class="lbval">${fc(barC)}</div></div></div></div>`;
+  if(!asgn.length){document.getElementById('clock-panel').innerHTML='<p class="empty">No staff assigned yet &mdash; build the rota first.</p>';return;}
+  document.getElementById('clock-panel').innerHTML=`<div class="clocklist">${asgn.map(p=>{const cl=isClocked(gigId,p.staff_name),cost=costFor(gigId,p.staff_name),last=lastEvt(gigId,p.staff_name);return`<div class="clockrow"><div style="flex:1;min-width:90px"><div class="cname">${p.staff_name}</div><div class="crole">${p.role}</div>${last?`<div class="ctime">${last.direction==='in'?'In':'Out'}: ${fmtT(last.ts)}${cl?' &middot; still in':''}</div>`:''}</div><div class="cact"><span class="badge ${cl?'bg':'bm'}">${cl?'In':hoursW(gigId,p.staff_name)>0?'Out':'&mdash;'}</span><span class="ccost">${fc(cost)}</span>${cl?`<button class="cbtn out" onclick="mgrClock('${gigId}','${p.staff_name}','out')">Sign out</button>`:`<button class="cbtn in" onclick="mgrClock('${gigId}','${p.staff_name}','in')">Sign in</button>`}</div></div>`;}).join('')}</div>`;
+}
+function renderAllCosts(){
+  document.getElementById('all-costs').innerHTML=gigs.map(g=>{const asgn=rota.filter(r=>r.gig_id===g.id);const tot=asgn.reduce((s,p)=>s+costFor(g.id,p.staff_name),0);const live=asgn.some(p=>isClocked(g.id,p.staff_name));return`<div class="allcrow"><div><span style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}</span> <span style="font-size:12px;color:var(--cream3)">${fmt(g.date)}</span></div><div style="display:flex;align-items:center;gap:9px">${live?'<span class="badge bg">Live</span>':''}<span style="font-size:17px;font-weight:600;color:var(--pink)">${fc(tot)}</span></div></div>`;}).join('')||'<p class="empty">No shows yet.</p>';
+}
+async function mgrClock(gigId,name,direction){
+  const p=profiles.find(x=>x.name===name);
+  const evt={gig_id:gigId,user_id:p?.id||null,staff_name:name,direction,ts:new Date().toISOString()};
+  const{data,error}=await db.from('clock_events').insert(evt).select().single();
+  if(error){toast('Error recording.');return;}
+  clocks.push(data);renderClockPanel();renderAllCosts();renderStats();toast(`${name} signed ${direction}.`);
+}
+
+// QR
+function showQRModal(gigId,gigName,gigDate){
+  const url=`${location.origin}${location.pathname}?qr=${gigId}`;
+  document.getElementById('qrm-t').textContent=gigName;document.getElementById('qrm-s').textContent=fmt(gigDate);
+  document.getElementById('qr-modal').classList.remove('hidden');
+  QRCode.toCanvas(document.getElementById('qr-canvas'),url,{width:220,color:{dark:'#0e0d0b',light:'#f0ead8'}});
+}
+function showQRForSel(){const gigId=document.getElementById('clock-sel').value,g=gigs.find(x=>x.id===gigId);if(g)showQRModal(g.id,g.name,g.date);}
+
+// QR PAGE
+async function initQR(gigId){
+  document.getElementById('auth-screen').style.display='none';document.getElementById('qr-page').classList.add('active');
+  const{url,key}=getSB();if(!url||!key){document.getElementById('qr-body').innerHTML='<p class="empty" style="text-align:center">App not configured yet.</p>';return;}
+  db=supabase.createClient(url,key);
+  const{data:sess}=await db.auth.getSession();
+  if(!sess.session){
+    document.getElementById('qr-body').innerHTML=`<div class="card"><p style="font-size:13px;color:var(--cream3);margin-bottom:16px;text-align:center">Sign in to clock in/out</p><label class="fl">Email</label><input class="fi" id="qr-em" type="email" placeholder="your@email.com"><label class="fl">Password</label><input class="fi" id="qr-pw" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"><div id="qr-err" class="aerr"></div><button class="btn-p" onclick="qrLogin('${gigId}')">Sign in &amp; continue</button></div>`;
+    return;
+  }
+  me=sess.session.user;await renderQRPanel(gigId);
+}
+async function qrLogin(gigId){
+  const em=document.getElementById('qr-em').value.trim(),pw=document.getElementById('qr-pw').value;
+  const{error}=await db.auth.signInWithPassword({email:em,password:pw});
+  if(error){setErr('qr-err',error.message);return;}
+  const{data}=await db.auth.getSession();me=data.session.user;await renderQRPanel(gigId);
+}
+async function renderQRPanel(gigId){
+  const{data:g}=await db.from('gigs').select('*').eq('id',gigId).single();
+  if(!g){document.getElementById('qr-body').innerHTML='<p class="empty" style="text-align:center">Show not found.</p>';return;}
+  document.getElementById('qr-show').textContent=g.name;document.getElementById('qr-date').textContent=fmt(g.date)+' &middot; '+(g.venue||'The Gaffe');
+  const{data:prof}=await db.from('profiles').select('*').eq('id',me.id).single();
+  const name=prof?.name||me.email;
+  const{data:evts}=await db.from('clock_events').select('*').eq('gig_id',gigId).eq('user_id',me.id).order('ts');
+  const clocked=evts&&evts.length>0&&evts[evts.length-1].direction==='in';
+  const{data:re}=await db.from('rota').select('*').eq('gig_id',gigId).eq('user_id',me.id);
+  const role=re&&re.length?re[0].role:'Staff';
+  document.getElementById('qr-body').innerHTML=`<div class="card" style="text-align:center"><p style="font-size:16px;font-weight:600;color:var(--cream);margin-bottom:3px">${name}</p><p style="font-size:12px;color:var(--cream3);margin-bottom:12px">${role}</p><p style="font-size:13px;color:${clocked?'var(--green)':'var(--cream3)'};margin-bottom:20px">${clocked?'&#10003; Currently signed in':'Not signed in'}</p><div class="two" style="margin-bottom:14px"><button class="subbtn suc" onclick="qrClock('${gigId}','${name}','in')">Sign in</button><button class="subbtn dan" onclick="qrClock('${gigId}','${name}','out')">Sign out</button></div><div id="qr-st" style="font-size:13px;color:var(--cream3);min-height:18px;text-align:center"></div></div>`;
+}
+async function qrClock(gigId,name,dir){
+  const evt={gig_id:gigId,user_id:me.id,staff_name:name,direction:dir,ts:new Date().toISOString()};
+  const{error}=await db.from('clock_events').insert(evt);
+  const s=document.getElementById('qr-st');
+  if(error){s.style.color='#e74c3c';s.textContent='Error — try again.';return;}
+  s.style.color=dir==='in'?'var(--green)':'#e74c3c';s.textContent=`Signed ${dir} at ${fmtT(new Date())}.`;
+  setTimeout(()=>renderQRPanel(gigId),1500);
+}
+
+// HEADFIRST
+async function openHF(){
+  document.getElementById('hf-modal').classList.remove('hidden');document.getElementById('hf-res').innerHTML='<div class="loading">Fetching from Headfirst...</div>';
+  try{
+    const res=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(HF_URL)}`);
+    const json=await res.json();const doc=new DOMParser().parseFromString(json.contents,'text/html');
+    const links=[...doc.querySelectorAll('a[href*="/whats-on/gaffe-comedy-club/"]')];
+    const seen=new Set();hfShows=[];
+    const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+    links.forEach(a=>{
+      const href=a.getAttribute('href');if(!href||seen.has(href))return;seen.add(href);
+      const m=href.match(/\/(mon|tue|wed|thu|fri|sat|sun)-(\d{1,2})-(\w+)-.+-(\d+)$/i);if(!m)return;
+      const mi=months[m[3].toLowerCase()];if(mi===undefined)return;
+      const now=new Date(),d=new Date(now.getFullYear(),mi,parseInt(m[2]));if(d<now)d.setFullYear(d.getFullYear()+1);
+      const date=d.toISOString().split('T')[0];
+      const tel=a.querySelector('h2,h3,p,strong')||a;const title=(tel.textContent||'').trim().replace(/\s+/g,' ');
+      if(!title||title.length<3)return;if(gigs.some(g=>g.headfirst_url&&g.headfirst_url.includes(m[4])))return;
+      hfShows.push({name:title,date,venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk'+href});
+    });
+    if(!hfShows.length){document.getElementById('hf-res').innerHTML='<p class="empty" style="text-align:center;padding:20px">No new shows found — they may already be imported.</p>';return;}
+    document.getElementById('hf-res').innerHTML=`<div style="max-height:340px;overflow-y:auto">${hfShows.map((s,i)=>`<div class="hfrow"><div><div class="hfname">${s.name}</div><div class="hfdate">${fmt(s.date)}</div></div><input class="hfchk" type="checkbox" id="hf-${i}" checked></div>`).join('')}</div>`;
+  }catch(e){document.getElementById('hf-res').innerHTML='<p style="font-size:13px;color:#e74c3c;text-align:center;padding:16px">Could not fetch Headfirst &mdash; try again in a moment.</p>';}
+}
+async function doImport(){
+  const toImp=hfShows.filter((_,i)=>document.getElementById(`hf-${i}`)?.checked);
+  if(!toImp.length){toast('No shows selected.');return;}
+  for(const s of toImp){const{data,error}=await db.from('gigs').insert(s).select().single();if(!error&&data)gigs.push(data);}
+  gigs.sort((a,b)=>a.date.localeCompare(b.date));closeModal('hf-modal');renderAll();toast(`${toImp.length} show${toImp.length>1?'s':''} imported!`);
+}
+
+// STAFF
+function renderStaffRota(){
+  const el=document.getElementById('staff-rota');if(!el)return;
+  el.innerHTML=gigs.map(g=>{const asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);return`<div class="rotacard"><div class="rotashow">${g.name}${big?` <span style="color:var(--pink)">&#9733;</span>`:''}</div><div class="rotadate">${fmt(g.date)}</div>${asgn.length?asgn.map(p=>`<div class="rotarow"><span class="rotaname">${p.staff_name}</span>${rbadge(p.role)}</div>`).join(''):'<span class="unfilled">Rota not published yet</span>'}</div>`;}).join('')||'<p class="empty">No shows yet.</p>';
+}
+function renderStaffGigs(){
+  const el=document.getElementById('staff-gigs');if(!el)return;
+  el.innerHTML=gigs.map(g=>{const big=isBig(g.date),chk=selIds.includes(g.id)||avail.some(a=>a.gig_id===g.id&&a.user_id===me?.id);return`<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd);gap:12px"><div><div style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}${big?'<span class="bigshow" style="margin-left:7px">&#9733;</span>':''}</div><div style="font-size:12px;color:var(--cream3);margin-top:3px">${fmt(g.date)}${g.venue?' &middot; '+g.venue:''}</div></div><label style="display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;padding-top:3px;font-size:11px;color:var(--cream3);font-weight:600;letter-spacing:.05em;text-transform:uppercase"><input type="checkbox" ${chk?'checked':''} onchange="toggleSel('${g.id}',this.checked)" style="accent-color:var(--pink);width:15px;height:15px"> Can work</label></div>`;}).join('')||'<p class="empty">No shows yet.</p>';
+}
+function renderStaffClockSel(){const sel=document.getElementById('sc-gig');if(!sel)return;sel.innerHTML='<option value="">— select show —</option>'+gigs.map(g=>`<option value="${g.id}">${g.name} — ${fmt(g.date)}</option>`).join('');}
+function toggleSel(id,chk){if(chk){if(!selIds.includes(id))selIds.push(id);}else{selIds=selIds.filter(x=>x!==id);}}
+async function submitAvail(){
+  if(!me){toast('Please sign in first.');return;}
+  await db.from('availability').delete().eq('user_id',me.id);
+  if(selIds.length)await db.from('availability').insert(selIds.map(gig_id=>({user_id:me.id,gig_id})));
+  avail=avail.filter(a=>a.user_id!==me.id);selIds.forEach(gid=>avail.push({user_id:me.id,gig_id:gid}));selIds=[];
+  renderStaffGigs();renderGigs();renderAvail();renderStats();toast('Availability saved!');
+}
+async function staffClock(dir){
+  const gigId=document.getElementById('sc-gig').value,s=document.getElementById('sc-status');
+  if(!gigId){s.textContent='Please select a show.';return;}
+  if(!me){s.textContent='Please sign in.';return;}
+  const{data:prof}=await db.from('profiles').select('*').eq('id',me.id).single();const name=prof?.name||me.email;
+  const onR=rota.find(r=>r.gig_id===gigId&&r.user_id===me.id);
+  if(!onR){s.style.color='#e74c3c';s.textContent="You're not on the rota for this show.";return;}
+  const cl=isClockedUID(gigId,me.id);
+  if(dir==='in'&&cl){s.style.color='var(--amber)';s.textContent='You are already signed in.';return;}
+  if(dir==='out'&&!cl){s.style.color='var(--amber)';s.textContent='You are not currently signed in.';return;}
+  const evt={gig_id:gigId,user_id:me.id,staff_name:name,direction:dir,ts:new Date().toISOString()};
+  await db.from('clock_events').insert(evt);clocks.push({...evt,id:Date.now().toString()});
+  s.style.color=dir==='in'?'var(--green)':'#e74c3c';s.textContent=`Signed ${dir} at ${fmtT(new Date())}.`;
+}
+
+// TIMESHEETS
+async function logTS(){
+  if(!me){toast('Please sign in first.');return;}
+  const date=document.getElementById('ts-date').value,start=document.getElementById('ts-start').value,end=document.getElementById('ts-end').value,desc=document.getElementById('ts-desc').value.trim();
+  const s=document.getElementById('ts-log-st');
+  if(!date||!start||!end||!desc){s.style.color='#e74c3c';s.textContent='Please fill in all fields.';return;}
+  if(end<=start){s.style.color='#e74c3c';s.textContent='End time must be after start time.';return;}
+  const hours=calcH(start,end);
+  const{data:prof}=await db.from('profiles').select('*').eq('id',me.id).single();const name=prof?.name||me.email;
+  const entry={user_id:me.id,staff_name:name,date,start_time:start,end_time:end,hours,description:desc};
+  const{data,error}=await db.from('timesheets').insert(entry).select().single();
+  if(error){s.style.color='#e74c3c';s.textContent='Error saving — try again.';return;}
+  sheets.unshift(data);['ts-start','ts-end','ts-desc'].forEach(id=>document.getElementById(id).value='');
+  s.style.color='var(--green)';s.textContent=`${hours} hrs logged &#10003;`;setTimeout(()=>{s.textContent='';},3000);
+  renderMyTS();toast(`${hours} hours logged!`);
+}
+async function deleteTS(id){
+  if(!confirm('Delete this entry?'))return;
+  await db.from('timesheets').delete().eq('id',id);sheets=sheets.filter(t=>t.id!==id);renderMyTS();renderTSMgr();toast('Entry deleted.');
+}
+function renderMyTS(){
+  const el=document.getElementById('my-ts');if(!el)return;
+  const mine=sheets.filter(t=>t.user_id===me?.id);
+  if(!mine.length){el.innerHTML='<p class="empty">No hours logged yet.</p>';return;}
+  const tot=mine.reduce((s,t)=>s+Number(t.hours),0);
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;padding:10px 0;margin-bottom:6px;border-bottom:1px solid var(--bd)"><span style="font-size:13px;color:var(--cream3)">Total logged (all time)</span><span style="font-size:16px;font-weight:600;color:var(--pink)">${tot.toFixed(2)} hrs</span></div>`+mine.map(t=>`<div class="card" style="margin-bottom:8px;padding:12px 15px"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div style="flex:1"><div style="font-size:12px;color:var(--cream3)">${fmtFull(t.date)} &middot; ${t.start_time}&ndash;${t.end_time}</div><div style="font-size:13px;color:var(--cream2);margin-top:4px">${t.description}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:15px;font-weight:600;color:var(--pink)">${Number(t.hours).toFixed(2)} hrs</div><button class="icbtn del" style="margin-top:5px;font-size:10px" onclick="deleteTS('${t.id}')">Delete</button></div></div></div>`).join('');
+}
+function renderTSStats(){
+  const el=document.getElementById('ts-stats');if(!el)return;
+  const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1);
+  const month=sheets.filter(t=>new Date(t.date)>=start);
+  const totH=month.reduce((s,t)=>s+Number(t.hours),0);
+  const totC=month.reduce((s,t)=>{const p=profiles.find(x=>x.id===t.user_id);return s+Number(t.hours)*(p?.hourly_rate||0);},0);
+  const ppl=new Set(month.map(t=>t.user_id)).size;
+  el.innerHTML=`<div class="statcard"><div class="statlbl">People logging</div><div class="statval">${ppl}</div><div class="statsub">this month</div></div><div class="statcard"><div class="statlbl">Hours logged</div><div class="statval">${totH.toFixed(1)}</div><div class="statsub">this month</div></div><div class="statcard"><div class="statlbl">Labour cost</div><div class="statval" style="font-size:22px">${fc(totC)}</div><div class="statsub">this month</div></div>`;
+}
+function renderTSFilter(){
+  const sel=document.getElementById('ts-pf');if(!sel)return;
+  const wts=[...new Set(sheets.map(t=>t.user_id))].map(uid=>profiles.find(p=>p.id===uid)).filter(Boolean);
+  const cur=sel.value;sel.innerHTML='<option value="">All staff</option>'+wts.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${p.name}</option>`).join('');
+}
+function renderTSMgr(){
+  const el=document.getElementById('ts-mgr');if(!el)return;
+  const pf=document.getElementById('ts-pf')?.value||'',per=document.getElementById('ts-per')?.value||'month';
+  const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-now.getDay());const som=new Date(now.getFullYear(),now.getMonth(),1);
+  let filt=sheets.filter(t=>{if(pf&&t.user_id!==pf)return false;const d=new Date(t.date);if(per==='week')return d>=sow;if(per==='month')return d>=som;return true;});
+  if(!filt.length){el.innerHTML='<p class="empty">No entries for this period.</p>';return;}
+  const byP={};
+  filt.forEach(t=>{if(!byP[t.user_id])byP[t.user_id]={name:t.staff_name,entries:[],hrs:0,cost:0,rate:0};byP[t.user_id].entries.push(t);byP[t.user_id].hrs+=Number(t.hours);const p=profiles.find(x=>x.id===t.user_id);const rate=p?.hourly_rate||0;byP[t.user_id].cost+=Number(t.hours)*rate;byP[t.user_id].rate=rate;});
+  el.innerHTML=Object.values(byP).map(person=>`<div class="tsblock"><div class="tsname">${person.name}${person.rate>0?`<span class="badge bp" style="margin-left:8px;font-size:10px">&pound;${person.rate}/hr</span>`:''}</div><div class="tsmeta">${person.entries.length} entr${person.entries.length===1?'y':'ies'}</div>${person.entries.map(t=>`<div class="tsentry"><div class="tsetop"><div style="flex:1"><div class="tsedate">${fmtFull(t.date)} &middot; ${t.start_time}&ndash;${t.end_time}</div><div class="tsedesc">${t.description}</div></div><div style="text-align:right;flex-shrink:0"><div class="tsehrs">${Number(t.hours).toFixed(2)} hrs</div>${person.rate>0?`<div class="tsecost">${fc(Number(t.hours)*person.rate)}</div>`:''}</div></div></div>`).join('')}<div class="tstots"><div class="tstot"><div class="tl">Total hours</div><div class="tv">${person.hrs.toFixed(2)}</div></div>${person.rate>0?`<div class="tstot"><div class="tl">Total cost</div><div class="tv">${fc(person.cost)}</div></div>`:''}</div></div>`).join('');
+}
+
+// NAV
+function switchMode(m){
+  document.getElementById('mgr-view').classList.toggle('hidden',m!=='manager');
+  document.getElementById('staff-view').classList.toggle('hidden',m==='manager');
+  document.getElementById('btn-mgr').classList.toggle('active',m==='manager');
+  document.getElementById('btn-staff').classList.toggle('active',m!=='manager');
+  if(m==='staff'){renderAnns();renderStaffGigs();renderStaffRota();renderStaffClockSel();}
+}
+function showMTab(id){
+  ['t-ov','t-rota','t-clock','t-ann','t-ts'].forEach(t=>document.getElementById(t).classList.toggle('hidden',t!==id));
+  document.querySelectorAll('#mgr-view .tab').forEach((b,i)=>b.classList.toggle('active',['t-ov','t-rota','t-clock','t-ann','t-ts'][i]===id));
+  mTab=id;
+  if(id==='t-clock'){renderClockSel();renderClockPanel();renderAllCosts();}
+  if(id==='t-rota')renderRota();
+  if(id==='t-ts'){renderTSStats();renderTSFilter();renderTSMgr();}
+}
+function showSTab(id){
+  ['st-ann','st-avail','st-rota','st-clock','st-ts'].forEach(t=>document.getElementById(t).classList.toggle('hidden',t!==id));
+  document.querySelectorAll('#staff-view .tab').forEach((b,i)=>b.classList.toggle('active',['st-ann','st-avail','st-rota','st-clock','st-ts'][i]===id));
+  sTab=id;if(id==='st-ts')renderMyTS();
+}
+
+setInterval(()=>{if(mTab==='t-clock'){renderClockPanel();renderAllCosts();}renderStats();},60000);
+</script>
+</body>
+</html>
