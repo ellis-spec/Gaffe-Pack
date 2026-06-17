@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Gaffe Pack — Staff App</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -264,7 +264,7 @@ create policy "all" on timesheets for all using(true) with check(true);</textare
     <div class="aerr" id="up-err"></div><div class="amsg" id="up-msg"></div>
     <button class="btn-p" onclick="doSignUp()">Create account</button>
    </div>
-   <div class="alink">First time? <a onclick="showSetup()">Set up database connection</a></div>
+   
   </div>
  </div>
 </div>
@@ -513,11 +513,16 @@ function lastEvt(gid,name){const e=clocks.filter(e=>e.gig_id===gid&&e.staff_name
 function getSB(){return{url:localStorage.getItem('gp-url'),key:localStorage.getItem('gp-key')};}
 function showSetup(){document.getElementById('setup-panel').classList.remove('hidden');document.getElementById('login-panel').classList.add('hidden');}
 function hideSetup(){document.getElementById('setup-panel').classList.add('hidden');document.getElementById('login-panel').classList.remove('hidden');}
-async function saveConfig(){
-  const url=document.getElementById('sb-url').value.trim(),key=document.getElementById('sb-key').value.trim();
+function saveConfig(){
+  const url=document.getElementById('sb-url').value.trim().replace(/\/$/,'');
+  const key=document.getElementById('sb-key').value.trim();
   if(!url||!key){setErr('cfg-err','Please fill in both fields.');return;}
-  try{const c=supabase.createClient(url,key);const{error}=await c.from('profiles').select('id').limit(1);if(error&&!error.message.includes('does not exist'))throw error;localStorage.setItem('gp-url',url);localStorage.setItem('gp-key',key);db=c;hideSetup();toast('Connected!');}
-  catch(e){setErr('cfg-err','Could not connect — check URL and key.');}
+  if(!url.startsWith('https://')){setErr('cfg-err','URL must start with https://');return;}
+  localStorage.setItem('gp-url',url);
+  localStorage.setItem('gp-key',key);
+  db=supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  hideSetup();
+  toast('Saved! Now sign in or create an account.');
 }
 
 // AUTH
@@ -540,13 +545,14 @@ async function doSignUp(){
 async function doSignOut(){await db.auth.signOut();location.reload();}
 
 // INIT
+const SB_URL='https://zyuyzpntcksmgpozxjkl.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5dXl6cG50Y2tzbWdwb3p4amtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNzg2NjEsImV4cCI6MjA5NDg1NDY2MX0.OvQukd4_jniMPGVtNGjC3z7nB-ZPGDNsmx6fNrLxwxE';
+
 window.addEventListener('DOMContentLoaded',async()=>{
   const params=new URLSearchParams(location.search);
   const qrGig=params.get('qr');
+  db=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
   if(qrGig){await initQR(qrGig);return;}
-  const{url,key}=getSB();
-  if(!url||!key){showSetup();return;}
-  db=supabase.createClient(url,key);
   db.auth.onAuthStateChange(async(event,session)=>{
     if(session){
       me=session.user;
@@ -737,7 +743,7 @@ function showQRForSel(){const gigId=document.getElementById('clock-sel').value,g
 async function initQR(gigId){
   document.getElementById('auth-screen').style.display='none';document.getElementById('qr-page').classList.add('active');
   const{url,key}=getSB();if(!url||!key){document.getElementById('qr-body').innerHTML='<p class="empty" style="text-align:center">App not configured yet.</p>';return;}
-  db=supabase.createClient(url,key);
+  db=supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
   const{data:sess}=await db.auth.getSession();
   if(!sess.session){
     document.getElementById('qr-body').innerHTML=`<div class="card"><p style="font-size:13px;color:var(--cream3);margin-bottom:16px;text-align:center">Sign in to clock in/out</p><label class="fl">Email</label><input class="fi" id="qr-em" type="email" placeholder="your@email.com"><label class="fl">Password</label><input class="fi" id="qr-pw" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"><div id="qr-err" class="aerr"></div><button class="btn-p" onclick="qrLogin('${gigId}')">Sign in &amp; continue</button></div>`;
