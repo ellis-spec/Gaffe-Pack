@@ -5,240 +5,331 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Gaffe Pack — Staff App</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #ffffff; --bg2: #f5f5f4; --bg3: #ededeb;
-    --text: #1a1a18; --text2: #5c5c58; --text3: #9c9a92;
-    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
-    --success-bg: #eaf3de; --success: #3b6d11;
-    --warn-bg: #faeeda; --warn: #854f0b;
-    --info-bg: #e6f1fb; --info: #185fa5;
-    --danger-bg: #fcebeb; --danger: #a32d2d;
-    --radius: 10px; --radius-sm: 7px;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2b;
-      --text: #e8e6de; --text2: #a8a69e; --text3: #6e6c66;
-      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
-      --success-bg: #173404; --success: #c0dd97;
-      --warn-bg: #412402; --warn: #fac775;
-      --info-bg: #042c53; --info: #b5d4f4;
-      --danger-bg: #501313; --danger: #f7c1c1;
-    }
-  }
-  body { font-family: var(--font); background: var(--bg3); color: var(--text); min-height: 100vh; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --black:#0e0d0b;--black2:#1a1916;--black3:#242320;--black4:#2e2d29;
+  --cream:#f0ead8;--cream2:#c8be9e;--cream3:#8a8168;
+  --pink:#e91e8c;--pink2:#c4177a;--pink-bg:rgba(233,30,140,0.12);--pink-border:rgba(233,30,140,0.3);
+  --red:#c0392b;--red-bg:rgba(192,57,43,0.15);
+  --green:#27ae60;--green-bg:rgba(39,174,96,0.12);--green-border:rgba(39,174,96,0.3);
+  --blue:#2980b9;--blue-bg:rgba(41,128,185,0.12);--blue-border:rgba(41,128,185,0.3);
+  --border:rgba(240,234,216,0.1);--border2:rgba(240,234,216,0.2);
+  --radius:8px;--radius-sm:5px;
+  --serif:'Playfair Display',Georgia,serif;--sans:'Inter',-apple-system,sans-serif;
+}
+body{font-family:var(--sans);background:var(--black);color:var(--cream);min-height:100vh;}
 
-  /* Setup screen */
-  #setup-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-  .setup-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 32px; max-width: 480px; width: 100%; }
-  .setup-logo { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
-  .setup-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
-  .setup-step { display: flex; gap: 12px; margin-bottom: 20px; }
-  .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--bg2); border: 0.5px solid var(--border); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; color: var(--text2); flex-shrink: 0; margin-top: 2px; }
-  .step-body { flex: 1; }
-  .step-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
-  .step-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
-  .step-desc a { color: var(--info); }
-  .setup-input { width: 100%; font-size: 13px; padding: 9px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); margin-top: 8px; }
-  .setup-btn { width: 100%; padding: 10px; font-size: 14px; font-weight: 500; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); cursor: pointer; margin-top: 16px; }
-  .setup-btn:hover { opacity: 0.85; }
-  .setup-error { font-size: 12px; color: var(--danger); margin-top: 8px; display: none; }
-  .skip-btn { width: 100%; padding: 8px; font-size: 13px; background: transparent; color: var(--text2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; margin-top: 8px; }
-  .skip-btn:hover { background: var(--bg2); }
+/* AUTH */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.auth-card{background:var(--black2);border:1px solid var(--border2);border-radius:12px;padding:36px;max-width:420px;width:100%;}
+.auth-logo{font-family:var(--serif);font-size:26px;font-weight:900;color:var(--cream);margin-bottom:4px;}
+.auth-logo span{color:var(--pink);}
+.auth-sub{font-size:12px;color:var(--cream3);margin-bottom:28px;letter-spacing:.05em;text-transform:uppercase;}
+.auth-tabs{display:flex;border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:20px;}
+.auth-tab{flex:1;padding:8px;font-size:13px;background:transparent;border:none;cursor:pointer;color:var(--cream3);font-family:var(--sans);font-weight:500;text-transform:uppercase;letter-spacing:.04em;}
+.auth-tab.active{background:var(--pink);color:#fff;}
+.field-label{display:block;font-size:11px;color:var(--cream3);margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;}
+.field{width:100%;font-size:14px;padding:10px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--black3);color:var(--cream);font-family:var(--sans);margin-bottom:12px;}
+.field:focus{outline:none;border-color:var(--pink2);}
+.primary-btn{width:100%;padding:11px;font-size:14px;font-weight:600;background:var(--pink);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--sans);letter-spacing:.03em;margin-top:4px;}
+.primary-btn:hover{background:var(--pink2);}
+.auth-error{font-size:12px;color:#e74c3c;margin-top:8px;display:none;}
+.auth-msg{font-size:12px;color:var(--green);margin-top:8px;display:none;}
+.setup-note{font-size:12px;color:var(--cream3);margin-top:16px;padding-top:16px;border-top:1px solid var(--border);line-height:1.6;}
+.setup-note a{color:var(--pink);text-decoration:none;}
+.sql-box{width:100%;height:130px;font-size:10px;font-family:monospace;margin-top:8px;padding:8px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--black3);color:var(--cream2);resize:none;}
 
-  /* Main app */
-  #app { display: none; max-width: 700px; margin: 0 auto; padding: 16px; }
-  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 10px; border-bottom: 0.5px solid var(--border); margin-bottom: 18px; }
-  .topbar-title { font-size: 17px; font-weight: 600; }
-  .topbar-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
-  .db-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 5px; vertical-align: middle; }
-  .db-dot.offline { background: var(--warn); }
-  .mode-toggle { display: flex; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); overflow: hidden; }
-  .mode-btn { padding: 6px 13px; font-size: 13px; background: transparent; border: none; cursor: pointer; color: var(--text2); }
-  .mode-btn.active { background: var(--bg2); color: var(--text); font-weight: 500; }
-  .tab-bar { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
-  .tab { padding: 8px 13px; font-size: 13px; cursor: pointer; color: var(--text2); border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
-  .tab.active { color: var(--text); font-weight: 500; border-bottom-color: var(--text); }
-  .section { margin-bottom: 22px; }
-  .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
-  .sec-title { font-size: 15px; font-weight: 500; }
-  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
-  .badge-success { background: var(--success-bg); color: var(--success); }
-  .badge-warn { background: var(--warn-bg); color: var(--warn); }
-  .badge-info { background: var(--info-bg); color: var(--info); }
-  .badge-secondary { background: var(--bg2); color: var(--text2); }
-  .badge-danger { background: var(--danger-bg); color: var(--danger); }
-  .add-btn { font-size: 13px; padding: 6px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: transparent; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 5px; }
-  .add-btn:hover { background: var(--bg2); }
-  .form-row { margin-bottom: 11px; }
-  .form-row label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 3px; }
-  .form-row input, .form-row textarea, .form-row select { width: 100%; font-size: 14px; padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); }
-  .form-row textarea { height: 70px; resize: none; }
-  .submit-btn { width: 100%; padding: 9px; font-size: 14px; font-weight: 500; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; }
-  .submit-btn:hover { background: var(--bg2); }
-  .submit-btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
-  .submit-btn.primary:hover { opacity: 0.85; }
-  .hidden { display: none !important; }
-  .stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 18px; }
-  .stat-card { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px; }
-  .stat-label { font-size: 12px; color: var(--text2); margin-bottom: 3px; }
-  .stat-val { font-size: 22px; font-weight: 600; }
-  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
-  .big-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; padding: 2px 7px; border-radius: 20px; background: var(--warn-bg); color: var(--warn); font-weight: 500; margin-left: 6px; }
-  .gig-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 13px 15px; margin-bottom: 10px; }
-  .gig-name { font-size: 14px; font-weight: 500; }
-  .gig-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .role-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
-  .avail-names { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
-  .avail-chip { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--success-bg); color: var(--success); }
-  .gig-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; flex-wrap: wrap; gap: 6px; }
-  .del-btn { font-size: 12px; padding: 4px 10px; border: 0.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text2); cursor: pointer; }
-  .del-btn:hover { border-color: var(--danger); color: var(--danger); }
-  .rota-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px,1fr)); gap: 10px; }
-  .rota-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
-  .rota-gig { font-size: 13px; font-weight: 500; }
-  .rota-date { font-size: 12px; color: var(--text2); margin: 2px 0 8px; }
-  .rota-person { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 4px; gap: 6px; }
-  .unfilled { font-style: italic; color: var(--text3); font-size: 12px; }
-  .announce-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 13px 15px; margin-bottom: 10px; }
-  .announce-title { font-size: 14px; font-weight: 500; }
-  .announce-body { font-size: 13px; color: var(--text2); margin-top: 4px; line-height: 1.55; }
-  .announce-meta { font-size: 11px; color: var(--text3); margin-top: 6px; }
-  .clock-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
-  .clock-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 0.5px solid var(--border); flex-wrap: wrap; }
-  .clock-row:last-child { border-bottom: none; padding-bottom: 0; }
-  .clock-name { font-size: 14px; font-weight: 500; }
-  .clock-role { font-size: 12px; color: var(--text2); }
-  .clock-time { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .clock-cost { font-size: 13px; font-weight: 500; min-width: 50px; text-align: right; }
-  .clock-btn { font-size: 12px; padding: 5px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: transparent; cursor: pointer; white-space: nowrap; }
-  .clock-btn.in { background: var(--success-bg); color: var(--success); border-color: var(--success); }
-  .clock-btn.out { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
-  .labour-summary { background: var(--bg2); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
-  .labour-total { font-size: 28px; font-weight: 600; }
-  .labour-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
-  .labour-breakdown { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 12px; }
-  .lb-role { font-size: 12px; color: var(--text2); margin-bottom: 2px; }
-  .lb-val { font-size: 15px; font-weight: 500; }
-  .staff-avail-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 0.5px solid var(--border); flex-wrap: wrap; }
-  .staff-avail-row:last-child { border-bottom: none; }
-  .avail-tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--success-bg); color: var(--success); }
-  .gig-select-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-  .toast.show { opacity: 1; }
-  .loading { text-align: center; padding: 30px; color: var(--text2); font-size: 13px; }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  @media (max-width: 480px) { .stat-grid { grid-template-columns: repeat(3,1fr); } .two-col { grid-template-columns: 1fr; } }
+/* APP */
+#app{display:none;max-width:700px;margin:0 auto;padding:16px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0 10px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+.topbar-brand{}
+.topbar-title{font-family:var(--serif);font-size:20px;font-weight:900;color:var(--cream);line-height:1;}
+.topbar-title span{color:var(--pink);}
+.topbar-sub{font-size:11px;color:var(--cream3);margin-top:4px;display:flex;align-items:center;gap:5px;letter-spacing:.04em;text-transform:uppercase;}
+.db-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.mode-toggle{display:flex;border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden;}
+.mode-btn{padding:6px 12px;font-size:12px;background:transparent;border:none;cursor:pointer;color:var(--cream3);font-family:var(--sans);font-weight:500;letter-spacing:.04em;text-transform:uppercase;}
+.mode-btn.active{background:var(--pink);color:#fff;}
+.signout-btn{padding:6px 10px;font-size:12px;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--cream3);font-family:var(--sans);}
+.signout-btn:hover{border-color:var(--border2);color:var(--cream);}
+
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto;}
+.tab{padding:9px 13px;font-size:12px;cursor:pointer;color:var(--cream3);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:var(--sans);font-weight:500;letter-spacing:.04em;text-transform:uppercase;}
+.tab.active{color:var(--pink);border-bottom-color:var(--pink);}
+
+.section{margin-bottom:22px;}
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.sec-title{font-family:var(--serif);font-size:16px;font-weight:700;color:var(--cream);}
+.card{background:var(--black2);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px;margin-bottom:10px;}
+
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
+.badge-success{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.badge-warn{background:var(--pink-bg);color:var(--pink);border:1px solid var(--pink-border);}
+.badge-info{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);}
+.badge-secondary{background:var(--black3);color:var(--cream3);border:1px solid var(--border);}
+.badge-danger{background:var(--red-bg);color:#e74c3c;border:1px solid rgba(192,57,43,0.3);}
+
+.add-btn{font-size:12px;padding:6px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:transparent;color:var(--cream3);cursor:pointer;font-family:var(--sans);font-weight:500;white-space:nowrap;}
+.add-btn:hover{border-color:var(--pink2);color:var(--pink);}
+
+.form-row{margin-bottom:12px;}
+.form-row label{display:block;font-size:11px;color:var(--cream3);margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;}
+.form-row input,.form-row textarea,.form-row select{width:100%;font-size:13px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--black3);color:var(--cream);font-family:var(--sans);}
+.form-row input:focus,.form-row textarea:focus,.form-row select:focus{outline:none;border-color:var(--pink2);}
+.form-row textarea{height:70px;resize:none;}
+.submit-btn{width:100%;padding:10px;font-size:13px;font-weight:600;border:1px solid var(--border2);border-radius:var(--radius-sm);background:transparent;color:var(--cream2);cursor:pointer;font-family:var(--sans);}
+.submit-btn:hover{border-color:var(--cream2);}
+.submit-btn.primary{background:var(--pink);color:#fff;border-color:var(--pink);}
+.submit-btn.primary:hover{background:var(--pink2);border-color:var(--pink2);}
+.hidden{display:none!important;}
+
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+.stat-card{background:var(--black2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--pink);opacity:.5;}
+.stat-label{font-size:11px;color:var(--cream3);margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase;}
+.stat-val{font-family:var(--serif);font-size:26px;font-weight:700;color:var(--cream);line-height:1;}
+.stat-sub{font-size:11px;color:var(--pink);margin-top:4px;}
+
+.gig-card{background:var(--black2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+.gig-name{font-size:14px;font-weight:600;color:var(--cream);}
+.gig-meta{font-size:12px;color:var(--cream3);margin-top:3px;}
+.avail-chip{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.big-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 8px;border-radius:20px;background:var(--pink-bg);color:var(--pink);border:1px solid var(--pink-border);font-weight:600;margin-left:7px;}
+.del-btn{font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--cream3);cursor:pointer;}
+.del-btn:hover{border-color:var(--red);color:var(--red);}
+.qr-btn{font-size:11px;padding:4px 10px;border:1px solid var(--pink-border);border-radius:var(--radius-sm);background:transparent;color:var(--pink);cursor:pointer;}
+.qr-btn:hover{background:var(--pink-bg);}
+
+.rota-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;}
+.rota-card{background:var(--black2);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;}
+.rota-gig{font-size:13px;font-weight:600;color:var(--cream);}
+.rota-date{font-size:11px;color:var(--cream3);margin:3px 0 9px;letter-spacing:.03em;}
+.rota-person{display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:5px;gap:6px;}
+.unfilled{font-style:italic;color:var(--cream3);font-size:12px;opacity:.6;}
+
+.announce-card{background:var(--black2);border:1px solid var(--border);border-left:3px solid var(--pink);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+.announce-title{font-size:14px;font-weight:600;color:var(--cream);}
+.announce-body{font-size:13px;color:var(--cream2);margin-top:5px;line-height:1.6;}
+.announce-meta{font-size:11px;color:var(--cream3);margin-top:7px;text-transform:uppercase;letter-spacing:.04em;}
+
+.clock-card{background:var(--black2);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px;margin-bottom:10px;}
+.clock-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.clock-row:last-child{border-bottom:none;padding-bottom:0;}
+.clock-name{font-size:14px;font-weight:600;color:var(--cream);}
+.clock-role{font-size:11px;color:var(--cream3);text-transform:uppercase;letter-spacing:.04em;margin-top:1px;}
+.clock-time{font-size:11px;color:var(--cream3);margin-top:2px;}
+.clock-cost{font-size:14px;font-weight:600;color:var(--pink);min-width:52px;text-align:right;}
+.clock-btn{font-size:11px;padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:transparent;cursor:pointer;white-space:nowrap;font-family:var(--sans);font-weight:600;letter-spacing:.03em;text-transform:uppercase;}
+.clock-btn.in{background:var(--green-bg);color:var(--green);border-color:var(--green-border);}
+.clock-btn.out{background:var(--red-bg);color:#e74c3c;border-color:rgba(192,57,43,0.3);}
+
+.labour-summary{background:var(--black3);border:1px solid var(--border);border-top:2px solid var(--pink);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
+.labour-label{font-size:11px;color:var(--cream3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;}
+.labour-total{font-family:var(--serif);font-size:32px;font-weight:700;color:var(--pink);line-height:1;}
+.labour-breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+.lb-role{font-size:11px;color:var(--cream3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;}
+.lb-val{font-size:16px;font-weight:600;color:var(--cream);}
+
+.staff-avail-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.staff-avail-row:last-child{border-bottom:none;}
+.avail-tag{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--pink);color:#fff;padding:10px 22px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;z-index:1000;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.loading{text-align:center;padding:30px;color:var(--cream3);font-size:13px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.divider{height:1px;background:var(--border);margin:16px 0;}
+
+/* QR MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;}
+.modal-box{background:var(--black2);border:1px solid var(--border2);border-radius:12px;padding:28px;max-width:320px;width:100%;text-align:center;}
+.modal-title{font-family:var(--serif);font-size:18px;font-weight:700;color:var(--cream);margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--cream3);margin-bottom:20px;}
+#qr-canvas{border-radius:var(--radius);margin:0 auto 16px;}
+.modal-close{width:100%;padding:9px;font-size:13px;font-weight:600;border:1px solid var(--border2);border-radius:var(--radius-sm);background:transparent;color:var(--cream2);cursor:pointer;font-family:var(--sans);}
+.modal-close:hover{border-color:var(--cream2);}
+.modal-hint{font-size:11px;color:var(--cream3);margin-top:10px;line-height:1.5;}
+
+/* QR CLOCK-IN PAGE */
+#qr-clockin{display:none;max-width:400px;margin:0 auto;padding:20px;min-height:100vh;align-items:center;justify-content:center;flex-direction:column;}
+#qr-clockin.active{display:flex;}
+.qr-page-title{font-family:var(--serif);font-size:24px;font-weight:900;color:var(--cream);text-align:center;margin-bottom:4px;}
+.qr-page-title span{color:var(--pink);}
+.qr-show-name{font-size:16px;font-weight:600;color:var(--cream);text-align:center;margin-bottom:4px;}
+.qr-show-date{font-size:13px;color:var(--cream3);text-align:center;margin-bottom:24px;}
+
+/* Headfirst import */
+.import-result{padding:8px 0;}
+.import-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;}
+.import-row:last-child{border-bottom:none;}
+.import-name{font-size:13px;font-weight:500;color:var(--cream);}
+.import-date{font-size:12px;color:var(--cream3);}
+.import-check{accent-color:var(--pink);width:16px;height:16px;cursor:pointer;}
+
+/* Role badge colors */
+.role-vm{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);}
+.role-avm{background:var(--pink-bg);color:var(--pink);border:1px solid var(--pink-border);}
+.role-bar{background:var(--black3);color:var(--cream3);border:1px solid var(--border);}
+
+.user-pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--pink-bg);color:var(--pink);border:1px solid var(--pink-border);}
+
+@media(max-width:480px){.two-col{grid-template-columns:1fr;}.stat-val{font-size:22px;}}
 </style>
 </head>
 <body>
 
-<!-- SETUP SCREEN -->
-<div id="setup-screen">
-  <div class="setup-card">
-    <div class="setup-logo">🎤 The Gaffe Pack</div>
-    <div class="setup-sub">Staff management app — first time setup</div>
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">THE <span>GAFFE</span> PACK</div>
+    <div class="auth-sub">Staff Management App</div>
 
-    <div class="setup-step">
-      <div class="step-num">1</div>
-      <div class="step-body">
-        <div class="step-title">Create a free Supabase account</div>
-        <div class="step-desc">Go to <a href="https://supabase.com" target="_blank">supabase.com</a>, sign up free, create a new project. Pick any name (e.g. "gaffe-pack") and remember the database password.</div>
-      </div>
-    </div>
-
-    <div class="setup-step">
-      <div class="step-num">2</div>
-      <div class="step-body">
-        <div class="step-title">Run this SQL to create your tables</div>
-        <div class="step-desc">In Supabase, go to <strong>SQL Editor</strong> and paste this, then click Run:</div>
-        <textarea readonly onclick="this.select()" style="width:100%;height:160px;font-size:11px;font-family:monospace;margin-top:8px;padding:8px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);resize:none;">
-create table if not exists gigs (id uuid primary key default gen_random_uuid(), name text, date text, venue text, created_at timestamptz default now());
-create table if not exists availability (id uuid primary key default gen_random_uuid(), staff_name text, gig_id uuid references gigs(id) on delete cascade, created_at timestamptz default now());
-create table if not exists rota (id uuid primary key default gen_random_uuid(), gig_id uuid references gigs(id) on delete cascade, staff_name text, role text);
-create table if not exists clock_events (id uuid primary key default gen_random_uuid(), gig_id uuid references gigs(id) on delete cascade, staff_name text, direction text, ts timestamptz default now());
+    <div id="first-time-setup" class="hidden">
+      <p style="font-size:13px;color:var(--cream3);margin-bottom:16px;line-height:1.6">First time setup — paste your Supabase details then run the SQL below to create the database tables.</p>
+      <label class="field-label">Supabase project URL</label>
+      <input class="field" type="text" id="sb-url" placeholder="https://xxxx.supabase.co">
+      <label class="field-label">Supabase anon key</label>
+      <input class="field" type="text" id="sb-key" placeholder="eyJ...">
+      <p style="font-size:12px;color:var(--cream3);margin:8px 0 4px">Run this in Supabase → SQL Editor:</p>
+      <textarea class="sql-box" readonly onclick="this.select()">create table if not exists profiles (id uuid primary key references auth.users(id), name text, role text default 'staff', created_at timestamptz default now());
+create table if not exists gigs (id uuid primary key default gen_random_uuid(), name text, date text, venue text, headfirst_url text, created_at timestamptz default now());
+create table if not exists availability (id uuid primary key default gen_random_uuid(), user_id uuid references profiles(id) on delete cascade, gig_id uuid references gigs(id) on delete cascade);
+create table if not exists rota (id uuid primary key default gen_random_uuid(), gig_id uuid references gigs(id) on delete cascade, user_id uuid references profiles(id), staff_name text, role text);
+create table if not exists clock_events (id uuid primary key default gen_random_uuid(), gig_id uuid references gigs(id) on delete cascade, user_id uuid references profiles(id), staff_name text, direction text, ts timestamptz default now());
 create table if not exists announcements (id uuid primary key default gen_random_uuid(), title text, body text, created_at timestamptz default now());
-alter table gigs enable row level security;
-alter table availability enable row level security;
-alter table rota enable row level security;
-alter table clock_events enable row level security;
-alter table announcements enable row level security;
-create policy "public_all" on gigs for all using (true) with check (true);
-create policy "public_all" on availability for all using (true) with check (true);
-create policy "public_all" on rota for all using (true) with check (true);
-create policy "public_all" on clock_events for all using (true) with check (true);
-create policy "public_all" on announcements for all using (true) with check (true);</textarea>
-      </div>
+alter table profiles enable row level security; alter table gigs enable row level security; alter table availability enable row level security; alter table rota enable row level security; alter table clock_events enable row level security; alter table announcements enable row level security;
+create policy "all" on profiles for all using(true) with check(true);
+create policy "all" on gigs for all using(true) with check(true);
+create policy "all" on availability for all using(true) with check(true);
+create policy "all" on rota for all using(true) with check(true);
+create policy "all" on clock_events for all using(true) with check(true);
+create policy "all" on announcements for all using(true) with check(true);</textarea>
+      <button class="primary-btn" onclick="saveSupabaseConfig()" style="margin-top:12px">Save & continue to login</button>
+      <div class="auth-error" id="config-error"></div>
     </div>
 
-    <div class="setup-step">
-      <div class="step-num">3</div>
-      <div class="step-body">
-        <div class="step-title">Paste your Supabase details below</div>
-        <div class="step-desc">In Supabase go to <strong>Project Settings → API</strong> and copy the URL and anon key.</div>
-        <input class="setup-input" type="text" id="sb-url" placeholder="https://xxxx.supabase.co">
-        <input class="setup-input" type="text" id="sb-key" placeholder="your-anon-key" style="margin-top:6px">
-        <div class="setup-error" id="setup-error">Could not connect — double-check the URL and key.</div>
-        <button class="setup-btn" onclick="connectSupabase()">Connect & open app</button>
-        <button class="skip-btn" onclick="skipSetup()">Skip for now (data won't be saved)</button>
+    <div id="login-panel">
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuthTab('login')">Sign in</button>
+        <button class="auth-tab" onclick="switchAuthTab('signup')">Create account</button>
+      </div>
+      <div id="login-form">
+        <label class="field-label">Email</label>
+        <input class="field" type="email" id="login-email" placeholder="your@email.com">
+        <label class="field-label">Password</label>
+        <input class="field" type="password" id="login-password" placeholder="••••••••">
+        <div class="auth-error" id="login-error"></div>
+        <button class="primary-btn" onclick="signIn()">Sign in</button>
+      </div>
+      <div id="signup-form" class="hidden">
+        <label class="field-label">Your name</label>
+        <input class="field" type="text" id="signup-name" placeholder="e.g. Jamie Smith">
+        <label class="field-label">Email</label>
+        <input class="field" type="email" id="signup-email" placeholder="your@email.com">
+        <label class="field-label">Password</label>
+        <input class="field" type="password" id="signup-password" placeholder="min 6 characters">
+        <div class="auth-error" id="signup-error"></div>
+        <div class="auth-msg" id="signup-msg"></div>
+        <button class="primary-btn" onclick="signUp()">Create account</button>
+      </div>
+      <div class="setup-note">
+        First time here? <a href="#" onclick="showFirstTimeSetup()">Set up database connection</a>
       </div>
     </div>
   </div>
 </div>
 
+<!-- QR CLOCK-IN PAGE (shown when ?qr=gigId in URL) -->
+<div id="qr-clockin">
+  <div class="qr-page-title">THE <span>GAFFE</span> PACK</div>
+  <div id="qr-show-name" class="qr-show-name"></div>
+  <div id="qr-show-date" class="qr-show-date"></div>
+  <div id="qr-clockin-inner" style="width:100%"></div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- QR MODAL -->
+<div class="modal-overlay hidden" id="qr-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="qr-modal-title"></div>
+    <div class="modal-sub" id="qr-modal-sub"></div>
+    <canvas id="qr-canvas"></canvas>
+    <button class="modal-close" onclick="closeQRModal()">Close</button>
+    <div class="modal-hint">Staff scan this with their phone camera to sign in/out for this show.</div>
+  </div>
+</div>
+
+<!-- HEADFIRST IMPORT MODAL -->
+<div class="modal-overlay hidden" id="hf-modal">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-title" style="margin-bottom:4px">Import from Headfirst</div>
+    <div style="font-size:12px;color:var(--cream3);margin-bottom:16px">Shows found on your Headfirst page. Tick the ones to import.</div>
+    <div id="hf-results"><div class="loading">Fetching shows...</div></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="modal-close" onclick="closeHFModal()" style="flex:1">Cancel</button>
+      <button class="primary-btn" onclick="importSelectedShows()" style="flex:1">Import selected</button>
+    </div>
+  </div>
+</div>
 
 <!-- MAIN APP -->
 <div id="app">
   <div class="topbar">
-    <div>
-      <div class="topbar-title">🎤 The Gaffe Pack</div>
-      <div class="topbar-sub"><span class="db-dot" id="db-dot"></span><span id="db-status">Connecting...</span></div>
+    <div class="topbar-brand">
+      <div class="topbar-title">THE <span>GAFFE</span> PACK</div>
+      <div class="topbar-sub"><span class="db-dot"></span><span id="user-label">Loading...</span></div>
     </div>
-    <div class="mode-toggle">
-      <button class="mode-btn active" id="btn-manager" onclick="switchMode('manager')">Manager</button>
-      <button class="mode-btn" id="btn-staff" onclick="switchMode('staff')">Staff</button>
+    <div class="topbar-right">
+      <div class="mode-toggle" id="mode-toggle">
+        <button class="mode-btn active" id="btn-manager" onclick="switchMode('manager')">Manager</button>
+        <button class="mode-btn" id="btn-staff" onclick="switchMode('staff')">Staff</button>
+      </div>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
     </div>
   </div>
 
-  <!-- MANAGER -->
+  <!-- MANAGER VIEW -->
   <div id="manager-view">
     <div class="tab-bar">
       <button class="tab active" onclick="showTab('t-overview')">Overview</button>
       <button class="tab" onclick="showTab('t-rota')">Rota</button>
-      <button class="tab" onclick="showTab('t-clock')">Sign in/out</button>
+      <button class="tab" onclick="showTab('t-clock')">Sign In/Out</button>
       <button class="tab" onclick="showTab('t-announce')">Announcements</button>
     </div>
 
     <div id="t-overview">
       <div class="stat-grid">
-        <div class="stat-card"><div class="stat-label">Upcoming gigs</div><div class="stat-val" id="s-gigs">—</div></div>
-        <div class="stat-card"><div class="stat-label">Staff members</div><div class="stat-val" id="s-staff">—</div></div>
-        <div class="stat-card"><div class="stat-label">Clocked in</div><div class="stat-val" id="s-clocked">—</div><div class="stat-sub" id="s-live-cost"></div></div>
+        <div class="stat-card"><div class="stat-label">Upcoming Shows</div><div class="stat-val" id="s-gigs">—</div></div>
+        <div class="stat-card"><div class="stat-label">Staff</div><div class="stat-val" id="s-staff">—</div></div>
+        <div class="stat-card"><div class="stat-label">Clocked In</div><div class="stat-val" id="s-clocked">—</div><div class="stat-sub" id="s-live-cost"></div></div>
       </div>
       <div class="section">
         <div class="sec-header">
-          <span class="sec-title">Upcoming gigs</span>
-          <button class="add-btn" onclick="toggle('gig-form')">+ Add gig</button>
+          <span class="sec-title">Upcoming Shows</span>
+          <div style="display:flex;gap:8px">
+            <button class="add-btn" onclick="openHFImport()">↓ Headfirst</button>
+            <button class="add-btn" onclick="toggle('gig-form')">+ Add show</button>
+          </div>
         </div>
         <div id="gig-form" class="card hidden">
           <div class="two-col">
-            <div class="form-row"><label>Gig name</label><input type="text" id="ng-name" placeholder="Friday Night Showcase"></div>
+            <div class="form-row"><label>Show name</label><input type="text" id="ng-name" placeholder="Friday Night Showcase"></div>
             <div class="form-row"><label>Date</label><input type="date" id="ng-date"></div>
           </div>
           <div class="form-row"><label>Venue / note</label><input type="text" id="ng-venue" placeholder="Main room"></div>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:10px">★ Fri &amp; Sat shows automatically get an Assistant Venue Manager slot.</p>
-          <button class="submit-btn primary" onclick="addGig()">Add gig</button>
+          <p style="font-size:12px;color:var(--cream3);margin-bottom:12px">★ Fri & Sat shows get an Assistant Venue Manager slot automatically.</p>
+          <button class="submit-btn primary" onclick="addGig()">Add show</button>
         </div>
-        <div id="gig-list"><div class="loading">Loading gigs...</div></div>
+        <div id="gig-list"><div class="loading">Loading shows...</div></div>
       </div>
       <div class="section">
-        <div class="sec-header"><span class="sec-title">Staff availability</span></div>
+        <div class="sec-header"><span class="sec-title">Staff Availability</span></div>
         <div class="card"><div id="avail-summary"><div class="loading">Loading...</div></div></div>
       </div>
     </div>
@@ -247,30 +338,30 @@ create policy "public_all" on announcements for all using (true) with check (tru
       <div class="section">
         <div class="sec-header">
           <span class="sec-title">Rota</span>
-          <button class="add-btn" onclick="toggle('rota-form')">✏ Build rota</button>
+          <button class="add-btn" onclick="toggleRota()">✏ Build rota</button>
         </div>
         <div id="rota-form" class="card hidden">
-          <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Assign available staff to each role.</p>
+          <p style="font-size:13px;color:var(--cream3);margin-bottom:14px">Assign available staff to each role.</p>
           <div id="rota-assign"></div>
           <button class="submit-btn primary" onclick="publishRota()">Publish rota</button>
         </div>
-        <div class="rota-grid" id="rota-display"><div class="loading">Loading rota...</div></div>
+        <div class="rota-grid" id="rota-display"><div class="loading">Loading...</div></div>
       </div>
     </div>
 
     <div id="t-clock" class="hidden">
       <div class="section">
-        <div class="sec-header"><span class="sec-title">Sign in / out &amp; labour costs</span></div>
-        <div class="gig-select-row">
-          <label style="font-size:13px;color:var(--text2)">Gig:</label>
-          <select id="clock-gig-sel" style="font-size:13px;flex:1;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text)" onchange="renderClockPanel()"></select>
+        <div class="sec-header"><span class="sec-title">Sign In / Out & Labour Costs</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <label style="font-size:12px;color:var(--cream3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;white-space:nowrap">Show:</label>
+          <select id="clock-gig-sel" class="field" style="flex:1;margin-bottom:0" onchange="renderClockPanel()"></select>
+          <button class="qr-btn" onclick="showQRForSelected()">QR Code</button>
         </div>
         <div id="labour-box"></div>
         <div id="clock-panel"></div>
-        <div class="section" style="margin-top:18px">
-          <div class="sec-header"><span class="sec-title" style="font-size:14px">All gig costs</span></div>
-          <div id="all-gig-costs"></div>
-        </div>
+        <div class="divider"></div>
+        <div class="sec-header"><span class="sec-title" style="font-size:14px">All Show Costs</span></div>
+        <div id="all-gig-costs"></div>
       </div>
     </div>
 
@@ -290,41 +381,35 @@ create policy "public_all" on announcements for all using (true) with check (tru
     </div>
   </div>
 
-  <!-- STAFF -->
+  <!-- STAFF VIEW -->
   <div id="staff-view" class="hidden">
     <div class="tab-bar">
       <button class="tab active" onclick="showStaffTab('st-announce')">Announcements</button>
-      <button class="tab" onclick="showStaffTab('st-avail')">My availability</button>
+      <button class="tab" onclick="showStaffTab('st-avail')">My Availability</button>
       <button class="tab" onclick="showStaffTab('st-rota')">Rota</button>
-      <button class="tab" onclick="showStaffTab('st-clock')">Sign in/out</button>
+      <button class="tab" onclick="showStaffTab('st-clock')">Sign In/Out</button>
     </div>
     <div id="st-announce"><div id="staff-ann-list"><div class="loading">Loading...</div></div></div>
     <div id="st-avail" class="hidden">
       <div class="card">
-        <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Tick the gigs you can work, then hit submit:</p>
-        <div class="form-row"><label>Your name</label><input type="text" id="staff-name" placeholder="Enter your name"></div>
+        <p style="font-size:13px;color:var(--cream3);margin-bottom:14px">Tick the shows you can work, then submit.</p>
         <div id="staff-gig-list"></div>
-        <button class="submit-btn primary" style="margin-top:14px" onclick="submitAvailability()">Submit availability</button>
+        <button class="submit-btn primary" style="margin-top:16px" onclick="submitAvailability()">Submit availability</button>
       </div>
     </div>
     <div id="st-rota" class="hidden"><div class="rota-grid" id="staff-rota-display"></div></div>
     <div id="st-clock" class="hidden">
       <div class="card">
-        <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Select your name and gig to sign in or out:</p>
-        <div class="form-row"><label>Your name</label>
-          <select id="sc-name" style="font-size:14px;width:100%;padding:8px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text)">
-            <option value="">— select your name —</option>
+        <p style="font-size:13px;color:var(--cream3);margin-bottom:14px">Select your show to sign in or out. Or scan the QR code at the venue.</p>
+        <div class="form-row"><label>Show</label>
+          <select id="sc-gig" style="width:100%;font-size:14px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--black3);color:var(--cream)">
+            <option value="">— select show —</option>
           </select>
         </div>
-        <div class="form-row"><label>Gig</label>
-          <select id="sc-gig" style="font-size:14px;width:100%;padding:8px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text)">
-            <option value="">— select gig —</option>
-          </select>
-        </div>
-        <div id="sc-status" style="font-size:13px;color:var(--text2);margin-bottom:12px;min-height:18px"></div>
+        <div id="sc-status" style="font-size:13px;color:var(--cream3);margin-bottom:12px;min-height:18px"></div>
         <div class="two-col">
-          <button class="submit-btn" style="background:var(--success-bg);color:var(--success);border-color:var(--success)" onclick="staffClockAction('in')">Sign in</button>
-          <button class="submit-btn" style="background:var(--danger-bg);color:var(--danger);border-color:var(--danger)" onclick="staffClockAction('out')">Sign out</button>
+          <button class="submit-btn" style="background:var(--green-bg);color:var(--green);border-color:var(--green-border)" onclick="staffClockAction('in')">Sign in</button>
+          <button class="submit-btn" style="background:var(--red-bg);color:#e74c3c;border-color:rgba(192,57,43,.3)" onclick="staffClockAction('out')">Sign out</button>
         </div>
       </div>
     </div>
@@ -332,549 +417,590 @@ create policy "public_all" on announcements for all using (true) with check (tru
 </div>
 
 <script>
-const RATES = { 'Bar staff': 13, 'Venue manager': 13.5, 'Assistant venue manager': 13.25 };
-const ROLES_STD = ['Venue manager', 'Bar staff', 'Bar staff'];
-const ROLES_BIG = ['Venue manager', 'Assistant venue manager', 'Bar staff', 'Bar staff'];
+const RATES={'Bar staff':13,'Venue manager':13.5,'Assistant venue manager':13.25};
+const ROLES_STD=['Venue manager','Bar staff','Bar staff'];
+const ROLES_BIG=['Venue manager','Assistant venue manager','Bar staff','Bar staff'];
+const HF_URL='https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club';
 
-let db = null;
-let offline = false;
-let gigs = [], availability = [], rotaData = [], clockEvents = [], announcements = [];
-let selectedGigIds = [];
-let activeManagerTab = 't-overview';
-let refreshTimer = null;
+let db=null,currentUser=null,currentProfile=null;
+let gigs=[],availability=[],rotaData=[],clockEvents=[],announcements=[],profiles=[];
+let selectedGigIds=[];
+let activeManagerTab='t-overview';
+let hfImportShows=[];
 
-// ── SUPABASE SETUP ──────────────────────────────────────────────────────────
-async function connectSupabase() {
-  const url = document.getElementById('sb-url').value.trim();
-  const key = document.getElementById('sb-key').value.trim();
-  if (!url || !key) { showSetupError('Please fill in both fields.'); return; }
-  try {
-    db = supabase.createClient(url, key);
-    const { error } = await db.from('gigs').select('id').limit(1);
-    if (error) throw error;
-    localStorage.setItem('gp-url', url);
-    localStorage.setItem('gp-key', key);
-    launchApp(true);
-  } catch(e) {
-    showSetupError('Could not connect — check the URL and key, and make sure you ran the SQL.');
+// ── HELPERS ──
+function isBig(ds){const d=new Date(ds).getDay();return d===5||d===6;}
+function rolesFor(g){return isBig(g.date)?ROLES_BIG:ROLES_STD;}
+function fmt(ds){return new Date(ds).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});}
+function fmtTime(ts){if(!ts)return'—';return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}
+function fc(n){return'£'+n.toFixed(2);}
+function roleClass(r){if(r==='Venue manager')return'role-vm';if(r==='Assistant venue manager')return'role-avm';return'role-bar';}
+function shortRole(r){if(r==='Venue manager')return'VM';if(r==='Assistant venue manager')return'Asst.';return'Bar';}
+function toggle(id){document.getElementById(id).classList.toggle('hidden');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ── SUPABASE CONFIG ──
+function getSBConfig(){return{url:localStorage.getItem('gp-url'),key:localStorage.getItem('gp-key')};}
+function showFirstTimeSetup(){document.getElementById('first-time-setup').classList.remove('hidden');document.getElementById('login-panel').classList.add('hidden');}
+async function saveSupabaseConfig(){
+  const url=document.getElementById('sb-url').value.trim(),key=document.getElementById('sb-key').value.trim();
+  if(!url||!key){showConfigError('Fill in both fields.');return;}
+  try{
+    const c=supabase.createClient(url,key);
+    const{error}=await c.from('profiles').select('id').limit(1);
+    if(error&&!error.message.includes('does not exist'))throw error;
+    localStorage.setItem('gp-url',url);localStorage.setItem('gp-key',key);
+    document.getElementById('first-time-setup').classList.add('hidden');
+    document.getElementById('login-panel').classList.remove('hidden');
+    db=c;showToast('Connected!');
+  }catch(e){showConfigError('Could not connect — check URL and key.');}
+}
+function showConfigError(m){const e=document.getElementById('config-error');e.textContent=m;e.style.display='block';}
+
+// ── AUTH ──
+function switchAuthTab(t){
+  document.getElementById('login-form').classList.toggle('hidden',t!=='login');
+  document.getElementById('signup-form').classList.toggle('hidden',t!=='signup');
+  document.querySelectorAll('.auth-tab').forEach((b,i)=>b.classList.toggle('active',['login','signup'][i]===t));
+}
+
+async function signIn(){
+  const email=document.getElementById('login-email').value.trim(),pw=document.getElementById('login-password').value;
+  if(!email||!pw){showAuthError('login-error','Fill in email and password.');return;}
+  const{error}=await db.auth.signInWithPassword({email,password:pw});
+  if(error){showAuthError('login-error',error.message);}
+}
+async function signUp(){
+  const name=document.getElementById('signup-name').value.trim(),email=document.getElementById('signup-email').value.trim(),pw=document.getElementById('signup-password').value;
+  if(!name||!email||!pw){showAuthError('signup-error','Fill in all fields.');return;}
+  const{data,error}=await db.auth.signUp({email,password:pw});
+  if(error){showAuthError('signup-error',error.message);return;}
+  if(data.user){
+    await db.from('profiles').upsert({id:data.user.id,name,role:'staff'});
+    showAuthMsg('signup-msg','Account created! You can now sign in.');
+    switchAuthTab('login');
   }
 }
+async function signOut(){await db.auth.signOut();location.reload();}
+function showAuthError(id,m){const e=document.getElementById(id);e.textContent=m;e.style.display='block';}
+function showAuthMsg(id,m){const e=document.getElementById(id);e.textContent=m;e.style.display='block';}
 
-function showSetupError(msg) {
-  const el = document.getElementById('setup-error');
-  el.textContent = msg; el.style.display = 'block';
-}
+// ── INIT ──
+window.addEventListener('DOMContentLoaded',async()=>{
+  // Check for QR clockin link
+  const params=new URLSearchParams(location.search);
+  const qrGig=params.get('qr');
+  if(qrGig){await initQRPage(qrGig);return;}
 
-function skipSetup() {
-  offline = true;
-  // seed demo data
-  gigs = [
-    {id:'1',name:'Thursday Warm-Up',date:'2026-05-28',venue:'Studio'},
-    {id:'2',name:'Friday Night Showcase',date:'2026-05-29',venue:'Main room'},
-    {id:'3',name:'Saturday Late Show',date:'2026-05-30',venue:'Main room'},
-    {id:'4',name:'Wednesday New Acts',date:'2026-06-03',venue:'Studio'},
-  ];
-  availability = [
-    {staff_name:'Jamie',gig_id:'1'},{staff_name:'Jamie',gig_id:'2'},{staff_name:'Jamie',gig_id:'4'},
-    {staff_name:'Sam',gig_id:'1'},{staff_name:'Sam',gig_id:'3'},
-    {staff_name:'Priya',gig_id:'2'},{staff_name:'Priya',gig_id:'3'},{staff_name:'Priya',gig_id:'4'},
-    {staff_name:'Leo',gig_id:'1'},{staff_name:'Leo',gig_id:'2'},{staff_name:'Leo',gig_id:'3'},{staff_name:'Leo',gig_id:'4'},
-    {staff_name:'Rach',gig_id:'3'},{staff_name:'Rach',gig_id:'4'},
-    {staff_name:'Finn',gig_id:'1'},{staff_name:'Finn',gig_id:'2'},{staff_name:'Finn',gig_id:'3'},
-  ];
-  rotaData = [
-    {gig_id:'1',staff_name:'Leo',role:'Venue manager'},{gig_id:'1',staff_name:'Jamie',role:'Bar staff'},{gig_id:'1',staff_name:'Sam',role:'Bar staff'},
-    {gig_id:'2',staff_name:'Priya',role:'Venue manager'},{gig_id:'2',staff_name:'Finn',role:'Assistant venue manager'},{gig_id:'2',staff_name:'Leo',role:'Bar staff'},{gig_id:'2',staff_name:'Jamie',role:'Bar staff'},
-    {gig_id:'3',staff_name:'Leo',role:'Venue manager'},{gig_id:'3',staff_name:'Sam',role:'Assistant venue manager'},{gig_id:'3',staff_name:'Priya',role:'Bar staff'},{gig_id:'3',staff_name:'Rach',role:'Bar staff'},
-    {gig_id:'4',staff_name:'Priya',role:'Venue manager'},{gig_id:'4',staff_name:'Leo',role:'Bar staff'},{gig_id:'4',staff_name:'Rach',role:'Bar staff'},
-  ];
-  announcements = [{id:'1',title:'Welcome to The Gaffe Pack App!',body:'Rota, availability, sign in/out and live labour costs — all in one place.',created_at:new Date().toISOString()}];
-  clockEvents = [];
-  launchApp(false);
-}
-
-function launchApp(connected) {
-  document.getElementById('setup-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  const dot = document.getElementById('db-dot');
-  const status = document.getElementById('db-status');
-  if (connected) { dot.className = 'db-dot'; status.textContent = 'Live — data saved'; }
-  else { dot.className = 'db-dot offline'; status.textContent = 'Demo mode — data not saved'; }
-  renderAll();
-  if (connected) { refreshTimer = setInterval(loadAllAndRender, 30000); }
-}
-
-// Try auto-connect on load
-window.addEventListener('DOMContentLoaded', async () => {
-  const url = localStorage.getItem('gp-url');
-  const key = localStorage.getItem('gp-key');
-  if (url && key) {
-    try {
-      db = supabase.createClient(url, key);
-      const { error } = await db.from('gigs').select('id').limit(1);
-      if (!error) { launchApp(true); return; }
-    } catch(e) {}
-  }
+  const{url,key}=getSBConfig();
+  if(!url||!key){document.getElementById('first-time-setup').classList.remove('hidden');document.getElementById('login-panel').classList.add('hidden');return;}
+  db=supabase.createClient(url,key);
+  db.auth.onAuthStateChange(async(event,session)=>{
+    if(session){
+      currentUser=session.user;
+      const{data}=await db.from('profiles').select('*').eq('id',currentUser.id).single();
+      currentProfile=data||{name:currentUser.email,role:'staff'};
+      await loadAllAndRender();
+      document.getElementById('auth-screen').style.display='none';
+      document.getElementById('app').style.display='block';
+      document.getElementById('user-label').textContent=currentProfile.name||currentUser.email;
+      // Only managers see the mode toggle
+      const isManager=currentProfile.role==='manager';
+      document.getElementById('mode-toggle').style.display=isManager?'flex':'none';
+      if(!isManager)switchMode('staff');
+    }
+  });
 });
 
-// ── DATA LOADING ────────────────────────────────────────────────────────────
-async function loadAllAndRender() {
-  if (offline || !db) { renderAll(); return; }
-  try {
-    const [g, a, r, c, ann] = await Promise.all([
+// ── QR CLOCK-IN PAGE ──
+async function initQRPage(gigId){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('qr-clockin').classList.add('active');
+  const{url,key}=getSBConfig();
+  if(!url||!key){document.getElementById('qr-clockin-inner').innerHTML='<p style="color:var(--cream3);text-align:center">App not set up yet.</p>';return;}
+  db=supabase.createClient(url,key);
+  const{data:session}=await db.auth.getSession();
+  if(!session.session){
+    // Show mini login for QR page
+    document.getElementById('qr-clockin-inner').innerHTML=`
+      <p style="font-size:13px;color:var(--cream3);text-align:center;margin-bottom:16px">Sign in to clock in/out</p>
+      <input class="field" type="email" id="qr-email" placeholder="Email" style="margin-bottom:8px">
+      <input class="field" type="password" id="qr-pw" placeholder="Password" style="margin-bottom:12px">
+      <div id="qr-err" style="font-size:12px;color:#e74c3c;margin-bottom:8px;display:none"></div>
+      <button class="primary-btn" onclick="qrLogin('${gigId}')">Sign in & clock in/out</button>`;
+    return;
+  }
+  currentUser=session.session.user;
+  await showQRClockPanel(gigId);
+}
+
+async function qrLogin(gigId){
+  const email=document.getElementById('qr-email').value.trim(),pw=document.getElementById('qr-pw').value;
+  const{error}=await db.auth.signInWithPassword({email,password:pw});
+  if(error){const e=document.getElementById('qr-err');e.textContent=error.message;e.style.display='block';return;}
+  const{data}=await db.auth.getSession();
+  currentUser=data.session.user;
+  await showQRClockPanel(gigId);
+}
+
+async function showQRClockPanel(gigId){
+  const{data:gig}=await db.from('gigs').select('*').eq('id',gigId).single();
+  if(!gig){document.getElementById('qr-clockin-inner').innerHTML='<p style="color:var(--cream3);text-align:center">Show not found.</p>';return;}
+  document.getElementById('qr-show-name').textContent=gig.name;
+  document.getElementById('qr-show-date').textContent=fmt(gig.date)+' · '+gig.venue;
+
+  const{data:profile}=await db.from('profiles').select('*').eq('id',currentUser.id).single();
+  const name=(profile&&profile.name)||currentUser.email;
+  const{data:onRota}=await db.from('rota').select('*').eq('gig_id',gigId).eq('user_id',currentUser.id);
+  const{data:evts}=await db.from('clock_events').select('*').eq('gig_id',gigId).eq('user_id',currentUser.id).order('ts');
+  const clocked=evts&&evts.length>0&&evts[evts.length-1].direction==='in';
+
+  document.getElementById('qr-clockin-inner').innerHTML=`
+    <div class="card" style="text-align:center;margin-top:8px">
+      <p style="font-size:15px;font-weight:600;color:var(--cream);margin-bottom:4px">${name}</p>
+      <p style="font-size:12px;color:var(--cream3);margin-bottom:16px">${onRota&&onRota.length?onRota[0].role:'Staff'}</p>
+      <p style="font-size:13px;color:${clocked?'var(--green)':'var(--cream3)'};margin-bottom:16px">
+        ${clocked?'✓ Currently signed in':'Not signed in'}
+      </p>
+      <div class="two-col">
+        <button class="submit-btn" style="background:var(--green-bg);color:var(--green);border-color:var(--green-border)" onclick="qrClock('${gigId}','${name}','in')">Sign in</button>
+        <button class="submit-btn" style="background:var(--red-bg);color:#e74c3c;border-color:rgba(192,57,43,.3)" onclick="qrClock('${gigId}','${name}','out')">Sign out</button>
+      </div>
+      <div id="qr-clock-status" style="font-size:13px;color:var(--cream3);margin-top:12px;min-height:18px"></div>
+    </div>`;
+}
+
+async function qrClock(gigId,name,direction){
+  const isIn=direction==='in';
+  const evt={gig_id:gigId,user_id:currentUser.id,staff_name:name,direction,ts:new Date().toISOString()};
+  const{error}=await db.from('clock_events').insert(evt);
+  const s=document.getElementById('qr-clock-status');
+  if(error){s.textContent='Error — try again.';return;}
+  s.style.color=isIn?'var(--green)':'#e74c3c';
+  s.textContent=`${name} signed ${direction} at ${fmtTime(new Date())}.`;
+  setTimeout(()=>showQRClockPanel(gigId),1500);
+}
+
+// ── DATA ──
+async function loadAllAndRender(){
+  try{
+    const[g,a,r,c,ann,p]=await Promise.all([
       db.from('gigs').select('*').order('date'),
       db.from('availability').select('*'),
       db.from('rota').select('*'),
       db.from('clock_events').select('*').order('ts'),
-      db.from('announcements').select('*').order('created_at', {ascending:false}),
+      db.from('announcements').select('*').order('created_at',{ascending:false}),
+      db.from('profiles').select('*'),
     ]);
-    gigs = g.data || [];
-    availability = a.data || [];
-    rotaData = r.data || [];
-    clockEvents = c.data || [];
-    announcements = ann.data || [];
+    gigs=g.data||[];availability=a.data||[];rotaData=r.data||[];
+    clockEvents=c.data||[];announcements=ann.data||[];profiles=p.data||[];
     renderAll();
-  } catch(e) { console.error(e); }
+  }catch(e){console.error(e);}
 }
 
-// ── HELPERS ──────────────────────────────────────────────────────────────────
-function isBig(dateStr) { const d = new Date(dateStr).getDay(); return d===5||d===6; }
-function rolesFor(g) { return isBig(g.date) ? ROLES_BIG : ROLES_STD; }
-function fmt(ds) { return new Date(ds).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}); }
-function fmtTime(ts) { if(!ts) return '—'; return new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
-function fc(n) { return '£'+n.toFixed(2); }
-function roleColor(r) {
-  if(r==='Venue manager') return 'badge-info';
-  if(r==='Assistant venue manager') return 'badge-warn';
-  return 'badge-secondary';
+// ── CLOCK ──
+function isClocked(gid,uid){
+  const e=clockEvents.filter(e=>e.gig_id===gid&&e.user_id===uid).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  return e.length>0&&e[e.length-1].direction==='in';
 }
-function shortRole(r) {
-  if(r==='Venue manager') return 'VM';
-  if(r==='Assistant venue manager') return 'Asst. Mgr';
-  return 'Bar';
+function isClockedByName(gid,name){
+  const e=clockEvents.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  return e.length>0&&e[e.length-1].direction==='in';
 }
-function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2500);
+function hoursWorked(gid,name){
+  const evts=clockEvents.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  let tot=0,inT=null;
+  evts.forEach(e=>{if(e.direction==='in')inT=new Date(e.ts);else if(e.direction==='out'&&inT){tot+=new Date(e.ts)-inT;inT=null;}});
+  if(inT)tot+=Date.now()-inT;
+  return tot/3600000;
+}
+function costFor(gid,name){const p=rotaData.find(r=>r.gig_id===gid&&r.staff_name===name);return hoursWorked(gid,name)*(p?RATES[p.role]||13:13);}
+function lastClock(gid,name){const e=clockEvents.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));return e.length?e[e.length-1]:null;}
+
+// ── RENDER ──
+function renderAll(){
+  renderStats();renderGigs();renderAvailSummary();renderRota();renderAnnouncements();
+  if(activeManagerTab==='t-clock'){renderClockGigSelect();renderClockPanel();renderAllGigCosts();}
 }
 
-// ── CLOCK HELPERS ─────────────────────────────────────────────────────────────
-function isClocked(gigId, name) {
-  const evts = clockEvents.filter(e=>e.gig_id===gigId&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
-  return evts.length>0 && evts[evts.length-1].direction==='in';
-}
-function hoursWorked(gigId, name) {
-  const evts = clockEvents.filter(e=>e.gig_id===gigId&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
-  let total=0, inTime=null;
-  evts.forEach(e => {
-    if(e.direction==='in') inTime=new Date(e.ts);
-    else if(e.direction==='out'&&inTime) { total+=new Date(e.ts)-inTime; inTime=null; }
-  });
-  if(inTime) total+=Date.now()-inTime;
-  return total/3600000;
-}
-function costFor(gigId, name) {
-  const p = rotaData.find(r=>r.gig_id===gigId&&r.staff_name===name);
-  const rate = p ? (RATES[p.role]||13) : 13;
-  return hoursWorked(gigId,name)*rate;
-}
-function lastClockTime(gigId, name) {
-  const evts = clockEvents.filter(e=>e.gig_id===gigId&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
-  return evts.length ? evts[evts.length-1] : null;
+function renderStats(){
+  document.getElementById('s-gigs').textContent=gigs.length;
+  document.getElementById('s-staff').textContent=profiles.length;
+  let cl=0,lc=0;
+  gigs.forEach(g=>rotaData.filter(r=>r.gig_id===g.id).forEach(p=>{if(isClockedByName(g.id,p.staff_name)){cl++;lc+=costFor(g.id,p.staff_name);}}));
+  document.getElementById('s-clocked').textContent=cl;
+  document.getElementById('s-live-cost').textContent=cl>0?fc(lc)+' running':'';
 }
 
-// ── RENDER ────────────────────────────────────────────────────────────────────
-function renderAll() {
-  renderStats();
-  renderGigs();
-  renderAvailSummary();
-  renderRota();
-  renderAnnouncements();
-  if(activeManagerTab==='t-clock') { renderClockGigSelect(); renderClockPanel(); renderAllGigCosts(); }
-}
-
-function renderStats() {
-  document.getElementById('s-gigs').textContent = gigs.length;
-  const names = [...new Set(availability.map(a=>a.staff_name))];
-  document.getElementById('s-staff').textContent = names.length;
-  let clocked=0, liveCost=0;
-  gigs.forEach(g=>{
-    rotaData.filter(r=>r.gig_id===g.id).forEach(p=>{
-      if(isClocked(g.id,p.staff_name)) { clocked++; liveCost+=costFor(g.id,p.staff_name); }
-    });
-  });
-  document.getElementById('s-clocked').textContent = clocked;
-  document.getElementById('s-live-cost').textContent = clocked>0 ? fc(liveCost)+' running' : '';
-}
-
-function renderGigs() {
-  const el = document.getElementById('gig-list');
-  if(!gigs.length) { el.innerHTML='<p style="font-size:13px;color:var(--text2)">No gigs yet — add one above.</p>'; return; }
-  el.innerHTML = gigs.map(g=>{
-    const avail = availability.filter(a=>a.gig_id===g.id).map(a=>a.staff_name);
-    const roles = rolesFor(g);
-    const big = isBig(g.date);
-    return `<div class="gig-card">
+function renderGigs(){
+  const el=document.getElementById('gig-list');
+  if(!gigs.length){el.innerHTML='<p style="font-size:13px;color:var(--cream3)">No shows yet — add one or import from Headfirst.</p>';return;}
+  el.innerHTML=gigs.map(g=>{
+    const avail=availability.filter(a=>a.gig_id===g.id);
+    const roles=rolesFor(g),big=isBig(g.date);
+    const names=avail.map(a=>{const p=profiles.find(x=>x.id===a.user_id);return p?p.name:'?';}).filter(Boolean);
+    return`<div class="gig-card">
       <div class="gig-name">${g.name}${big?'<span class="big-badge">★ Big show</span>':''}</div>
-      <div class="gig-meta">${fmt(g.date)} · ${g.venue}</div>
-      <div class="role-pills">${roles.map(r=>`<span class="badge ${roleColor(r)}">${r}</span>`).join('')}</div>
-      <div class="avail-names">${avail.length?avail.map(n=>`<span class="avail-chip">${n}</span>`).join(''):'<span style="font-size:12px;color:var(--text3)">No availability yet</span>'}</div>
-      <div class="gig-footer">
-        <span class="badge ${avail.length>=roles.length?'badge-success':avail.length>0?'badge-warn':'badge-danger'}">${avail.length}/${roles.length} available</span>
-        <button class="del-btn" onclick="deleteGig('${g.id}')">Remove</button>
+      <div class="gig-meta">${fmt(g.date)} · ${g.venue||'TBC'}${g.headfirst_url?` · <a href="${g.headfirst_url}" target="_blank" style="color:var(--pink);font-size:11px">Headfirst ↗</a>`:''}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+        ${roles.map(r=>`<span class="badge ${roleClass(r)}">${r}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">
+        ${names.length?names.map(n=>`<span class="avail-chip">${n}</span>`).join(''):'<span style="font-size:12px;color:var(--cream3)">No availability yet</span>'}
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:6px">
+        <span class="badge ${names.length>=roles.length?'badge-success':names.length>0?'badge-warn':'badge-danger'}">${names.length}/${roles.length} available</span>
+        <div style="display:flex;gap:6px">
+          <button class="qr-btn" onclick="showQRModal('${g.id}','${g.name.replace(/'/g,"\\'")}','${g.date}')">QR code</button>
+          <button class="del-btn" onclick="deleteGig('${g.id}')">Remove</button>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
 
-function renderAvailSummary() {
-  const el = document.getElementById('avail-summary');
-  const names = [...new Set(availability.map(a=>a.staff_name))];
-  if(!names.length) { el.innerHTML='<p style="font-size:13px;color:var(--text2)">No availability submitted yet.</p>'; return; }
-  el.innerHTML = names.map(name=>{
-    const ids = availability.filter(a=>a.staff_name===name).map(a=>a.gig_id);
-    const tags = ids.map(id=>{ const g=gigs.find(x=>x.id===id); return g?`<span class="avail-tag">${g.name.split(' ').slice(0,2).join(' ')}</span>`:''; }).join('');
-    return `<div class="staff-avail-row"><span style="font-size:13px;font-weight:500;min-width:80px">${name}</span><div style="display:flex;gap:4px;flex-wrap:wrap">${tags}</div></div>`;
+function renderAvailSummary(){
+  const el=document.getElementById('avail-summary');
+  if(!profiles.length){el.innerHTML='<p style="font-size:13px;color:var(--cream3)">No staff accounts yet.</p>';return;}
+  const hasAvail=profiles.filter(p=>availability.some(a=>a.user_id===p.id));
+  if(!hasAvail.length){el.innerHTML='<p style="font-size:13px;color:var(--cream3)">No availability submitted yet.</p>';return;}
+  el.innerHTML=hasAvail.map(p=>{
+    const ids=availability.filter(a=>a.user_id===p.id).map(a=>a.gig_id);
+    const tags=ids.map(id=>{const g=gigs.find(x=>x.id===id);return g?`<span class="avail-tag">${g.name.split(' ').slice(0,2).join(' ')}</span>`:''}).join('');
+    return`<div class="staff-avail-row"><span style="font-size:13px;font-weight:600;min-width:90px;color:var(--cream)">${p.name}</span><div style="display:flex;gap:4px;flex-wrap:wrap">${tags}</div></div>`;
   }).join('');
 }
 
-function renderRota() {
-  const el = document.getElementById('rota-display');
-  if(!gigs.length) { el.innerHTML='<p style="font-size:13px;color:var(--text2)">No gigs yet.</p>'; return; }
-  el.innerHTML = gigs.map(g=>{
-    const assigned = rotaData.filter(r=>r.gig_id===g.id);
-    const big = isBig(g.date);
-    return `<div class="rota-card">
-      <div class="rota-gig">${g.name}${big?' ★':''}</div>
+function renderRota(){
+  const el=document.getElementById('rota-display');
+  if(!gigs.length){el.innerHTML='<p style="font-size:13px;color:var(--cream3)">No shows yet.</p>';return;}
+  el.innerHTML=gigs.map(g=>{
+    const assigned=rotaData.filter(r=>r.gig_id===g.id),big=isBig(g.date);
+    return`<div class="rota-card">
+      <div class="rota-gig">${g.name}${big?' <span style="color:var(--pink)">★</span>':''}</div>
       <div class="rota-date">${fmt(g.date)}</div>
       <div>${rolesFor(g).map((role,ri)=>{
-        const barIdx = rolesFor(g).slice(0,ri).filter(r=>r==='Bar staff').length;
-        const person = role==='Bar staff' ? assigned.filter(p=>p.role==='Bar staff')[barIdx] : assigned.find(p=>p.role===role);
-        return `<div class="rota-person"><span>${person?person.staff_name:'<span class="unfilled">Unfilled</span>'}</span><span class="badge ${roleColor(role)}">${shortRole(role)}</span></div>`;
+        const bi=rolesFor(g).slice(0,ri).filter(r=>r==='Bar staff').length;
+        const p=role==='Bar staff'?assigned.filter(p=>p.role==='Bar staff')[bi]:assigned.find(p=>p.role===role);
+        return`<div class="rota-person"><span style="color:var(--cream2)">${p?p.staff_name:'<span class="unfilled">Unfilled</span>'}</span><span class="badge ${roleClass(role)}">${shortRole(role)}</span></div>`;
       }).join('')}</div>
     </div>`;
   }).join('');
   renderStaffRotaDisplay();
 }
 
-function renderRotaAssign() {
-  const el = document.getElementById('rota-assign');
-  el.innerHTML = gigs.map(g=>{
-    const avail = availability.filter(a=>a.gig_id===g.id).map(a=>a.staff_name);
-    const roles = rolesFor(g);
-    const assigned = rotaData.filter(r=>r.gig_id===g.id);
-    const big = isBig(g.date);
-    return `<div style="margin-bottom:18px;padding-bottom:16px;border-bottom:0.5px solid var(--border)">
-      <p style="font-size:13px;font-weight:500;margin-bottom:10px">${g.name}${big?' ★':''} <span style="font-weight:400;color:var(--text2)">${fmt(g.date)}</span></p>
-      ${avail.length ? roles.map((role,idx)=>{
-        const barIdx = roles.slice(0,idx).filter(r=>r==='Bar staff').length;
-        const cur = role==='Bar staff' ? (assigned.filter(p=>p.role==='Bar staff')[barIdx]||{}).staff_name : (assigned.find(p=>p.role===role)||{}).staff_name;
-        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="badge ${roleColor(role)}" style="min-width:105px;text-align:center">${role==='Assistant venue manager'?'Asst. Mgr':role}</span>
-          <select id="sel-${g.id}-${role}-${idx}" style="font-size:13px;flex:1;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text)">
+function renderRotaAssign(){
+  const el=document.getElementById('rota-assign');
+  const availableProfiles=gigs.map(g=>{
+    const avail=availability.filter(a=>a.gig_id===g.id).map(a=>{const p=profiles.find(x=>x.id===a.user_id);return p?p.name:null;}).filter(Boolean);
+    return{g,avail};
+  });
+  el.innerHTML=availableProfiles.map(({g,avail})=>{
+    const roles=rolesFor(g),assigned=rotaData.filter(r=>r.gig_id===g.id),big=isBig(g.date);
+    return`<div style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--border)">
+      <p style="font-size:13px;font-weight:600;color:var(--cream);margin-bottom:10px">${g.name}${big?' <span style="color:var(--pink)">★</span>':''} <span style="font-weight:400;color:var(--cream3)">${fmt(g.date)}</span></p>
+      ${avail.length?roles.map((role,idx)=>{
+        const bi=roles.slice(0,idx).filter(r=>r==='Bar staff').length;
+        const cur=role==='Bar staff'?(assigned.filter(p=>p.role==='Bar staff')[bi]||{}).staff_name:(assigned.find(p=>p.role===role)||{}).staff_name;
+        return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span class="badge ${roleClass(role)}" style="min-width:90px;text-align:center">${role==='Assistant venue manager'?'Asst. Mgr':role}</span>
+          <select id="sel-${g.id}-${role}-${idx}" style="font-size:13px;flex:1;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--black3);color:var(--cream)">
             <option value="">— choose —</option>
             ${avail.map(n=>`<option ${cur===n?'selected':''}>${n}</option>`).join('')}
           </select>
         </div>`;
-      }).join('') : '<p style="font-size:12px;color:var(--text3)">No staff available for this gig.</p>'}
+      }).join(''):'<p style="font-size:12px;color:var(--cream3)">No staff available for this show.</p>'}
     </div>`;
   }).join('');
 }
 
-function renderAnnouncements() {
-  const render = (id) => {
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.innerHTML = announcements.map(a=>`<div class="announce-card">
+function renderAnnouncements(){
+  ['announce-list','staff-ann-list'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML=announcements.map(a=>`<div class="announce-card">
       <div class="announce-title">${a.title}</div>
       <div class="announce-body">${a.body}</div>
       <div class="announce-meta">${new Date(a.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-    </div>`).join('') || '<p style="font-size:13px;color:var(--text2)">No announcements yet.</p>';
-  };
-  render('announce-list');
-  render('staff-ann-list');
+    </div>`).join('')||'<p style="font-size:13px;color:var(--cream3)">No announcements yet.</p>';
+  });
 }
 
-function renderClockGigSelect() {
-  const sel = document.getElementById('clock-gig-sel');
-  const cur = sel.value;
-  sel.innerHTML = gigs.map(g=>`<option value="${g.id}" ${g.id===cur?'selected':''}>${g.name} — ${fmt(g.date)}</option>`).join('');
+function renderClockGigSelect(){
+  const sel=document.getElementById('clock-gig-sel'),cur=sel.value;
+  sel.innerHTML=gigs.map(g=>`<option value="${g.id}" ${g.id===cur?'selected':''}>${g.name} — ${fmt(g.date)}</option>`).join('');
 }
 
-function renderClockPanel() {
-  const gigId = document.getElementById('clock-gig-sel').value || (gigs[0]&&gigs[0].id);
-  if(!gigId) return;
-  const g = gigs.find(x=>x.id===gigId);
-  const assigned = rotaData.filter(r=>r.gig_id===gigId);
-  let vmCost=0,avmCost=0,barCost=0,total=0;
-  assigned.forEach(p=>{ const c=costFor(gigId,p.staff_name); total+=c; if(p.role==='Venue manager') vmCost+=c; else if(p.role==='Assistant venue manager') avmCost+=c; else barCost+=c; });
-  document.getElementById('labour-box').innerHTML = `<div class="labour-summary">
-    <div class="labour-label">Total labour cost — ${g?g.name:''}</div>
-    <div class="labour-total">${fc(total)}</div>
+function renderClockPanel(){
+  const gigId=document.getElementById('clock-gig-sel').value||(gigs[0]&&gigs[0].id);
+  if(!gigId)return;
+  const g=gigs.find(x=>x.id===gigId),assigned=rotaData.filter(r=>r.gig_id===gigId);
+  let vmC=0,avmC=0,barC=0,tot=0;
+  assigned.forEach(p=>{const c=costFor(gigId,p.staff_name);tot+=c;if(p.role==='Venue manager')vmC+=c;else if(p.role==='Assistant venue manager')avmC+=c;else barC+=c;});
+  document.getElementById('labour-box').innerHTML=`<div class="labour-summary">
+    <div class="labour-label">Total Labour Cost — ${g?g.name:''}</div>
+    <div class="labour-total">${fc(tot)}</div>
     <div class="labour-breakdown">
-      <div><div class="lb-role">Venue manager</div><div class="lb-val">${fc(vmCost)}</div></div>
-      <div><div class="lb-role">Asst. manager</div><div class="lb-val">${fc(avmCost)}</div></div>
-      <div><div class="lb-role">Bar staff</div><div class="lb-val">${fc(barCost)}</div></div>
+      <div><div class="lb-role">Venue Manager</div><div class="lb-val">${fc(vmC)}</div></div>
+      <div><div class="lb-role">Asst. Manager</div><div class="lb-val">${fc(avmC)}</div></div>
+      <div><div class="lb-role">Bar Staff</div><div class="lb-val">${fc(barC)}</div></div>
     </div>
   </div>`;
-  if(!assigned.length) { document.getElementById('clock-panel').innerHTML='<p style="font-size:13px;color:var(--text2)">No staff assigned to this gig yet. Build the rota first.</p>'; return; }
-  document.getElementById('clock-panel').innerHTML = `<div class="clock-card">${assigned.map(p=>{
-    const clocked=isClocked(gigId,p.staff_name);
-    const hrs=hoursWorked(gigId,p.staff_name);
-    const cost=costFor(gigId,p.staff_name);
-    const last=lastClockTime(gigId,p.staff_name);
-    return `<div class="clock-row">
+  if(!assigned.length){document.getElementById('clock-panel').innerHTML='<p style="font-size:13px;color:var(--cream3)">No staff assigned yet. Build the rota first.</p>';return;}
+  document.getElementById('clock-panel').innerHTML=`<div class="clock-card">${assigned.map(p=>{
+    const cl=isClockedByName(gigId,p.staff_name),cost=costFor(gigId,p.staff_name),last=lastClock(gigId,p.staff_name);
+    return`<div class="clock-row">
       <div style="flex:1;min-width:90px">
         <div class="clock-name">${p.staff_name}</div>
         <div class="clock-role">${p.role}</div>
-        ${last?`<div class="clock-time">${last.direction==='in'?'In':'Out'}: ${fmtTime(last.ts)}${clocked?' · still in':''}</div>`:''}
+        ${last?`<div class="clock-time">${last.direction==='in'?'In':'Out'}: ${fmtTime(last.ts)}${cl?' · still in':''}</div>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="badge ${clocked?'badge-success':'badge-secondary'}">${clocked?'In':hrs>0?'Out':'—'}</span>
+        <span class="badge ${cl?'badge-success':'badge-secondary'}">${cl?'In':hoursWorked(gigId,p.staff_name)>0?'Out':'—'}</span>
         <span class="clock-cost">${fc(cost)}</span>
-        ${clocked
-          ?`<button class="clock-btn out" onclick="managerClock('${gigId}','${p.staff_name}','out')">Sign out</button>`
-          :`<button class="clock-btn in" onclick="managerClock('${gigId}','${p.staff_name}','in')">Sign in</button>`}
+        ${cl?`<button class="clock-btn out" onclick="managerClock('${gigId}','${p.staff_name}','out')">Sign out</button>`
+            :`<button class="clock-btn in" onclick="managerClock('${gigId}','${p.staff_name}','in')">Sign in</button>`}
       </div>
     </div>`;
   }).join('')}</div>`;
 }
 
-function renderAllGigCosts() {
-  const el = document.getElementById('all-gig-costs');
-  el.innerHTML = gigs.map(g=>{
+function renderAllGigCosts(){
+  document.getElementById('all-gig-costs').innerHTML=gigs.map(g=>{
     const assigned=rotaData.filter(r=>r.gig_id===g.id);
-    const total=assigned.reduce((s,p)=>s+costFor(g.id,p.staff_name),0);
-    const anyLive=assigned.some(p=>isClocked(g.id,p.staff_name));
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--border)">
-      <div><span style="font-size:14px;font-weight:500">${g.name}</span> <span style="font-size:12px;color:var(--text2)">${fmt(g.date)}</span></div>
-      <div style="display:flex;align-items:center;gap:8px">${anyLive?'<span class="badge badge-success">Live</span>':''}<span style="font-size:15px;font-weight:500">${fc(total)}</span></div>
+    const tot=assigned.reduce((s,p)=>s+costFor(g.id,p.staff_name),0);
+    const live=assigned.some(p=>isClockedByName(g.id,p.staff_name));
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div><span style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}</span> <span style="font-size:12px;color:var(--cream3)">${fmt(g.date)}</span></div>
+      <div style="display:flex;align-items:center;gap:8px">${live?'<span class="badge badge-success">Live</span>':''}<span style="font-size:16px;font-weight:600;color:var(--pink)">${fc(tot)}</span></div>
     </div>`;
   }).join('');
 }
 
-function renderStaffRotaDisplay() {
-  const el = document.getElementById('staff-rota-display');
-  if(!el) return;
-  el.innerHTML = gigs.map(g=>{
-    const assigned=rotaData.filter(r=>r.gig_id===g.id);
-    const big=isBig(g.date);
-    return `<div class="rota-card">
-      <div class="rota-gig">${g.name}${big?' ★':''}</div>
+function renderStaffRotaDisplay(){
+  const el=document.getElementById('staff-rota-display');if(!el)return;
+  el.innerHTML=gigs.map(g=>{
+    const assigned=rotaData.filter(r=>r.gig_id===g.id),big=isBig(g.date);
+    return`<div class="rota-card">
+      <div class="rota-gig">${g.name}${big?' <span style="color:var(--pink)">★</span>':''}</div>
       <div class="rota-date">${fmt(g.date)}</div>
-      <div>${assigned.length?assigned.map(p=>`<div class="rota-person"><span>${p.staff_name}</span><span class="badge ${roleColor(p.role)}">${shortRole(p.role)}</span></div>`).join(''):'<span class="unfilled">Rota not published yet</span>'}</div>
+      <div>${assigned.length?assigned.map(p=>`<div class="rota-person"><span style="color:var(--cream2)">${p.staff_name}</span><span class="badge ${roleClass(p.role)}">${shortRole(p.role)}</span></div>`).join(''):'<span class="unfilled">Rota not published yet</span>'}</div>
     </div>`;
   }).join('');
 }
 
-function renderStaffAvailGigs() {
-  const el = document.getElementById('staff-gig-list');
-  el.innerHTML = gigs.map(g=>{
+function renderStaffAvailGigs(){
+  document.getElementById('staff-gig-list').innerHTML=gigs.map(g=>{
     const big=isBig(g.date);
-    return `<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--border);gap:10px">
+    const checked=selectedGigIds.includes(g.id)||availability.some(a=>a.gig_id===g.id&&a.user_id===currentUser?.id);
+    return`<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">
       <div>
-        <div style="font-size:14px;font-weight:500">${g.name}${big?'<span class="big-badge" style="margin-left:6px">★</span>':''}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px">${fmt(g.date)} · ${g.venue}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}${big?'<span class="big-badge" style="margin-left:6px">★</span>':''}</div>
+        <div style="font-size:12px;color:var(--cream3);margin-top:3px">${fmt(g.date)}${g.venue?' · '+g.venue:''}</div>
       </div>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2);white-space:nowrap;padding-top:3px">
-        <input type="checkbox" ${selectedGigIds.includes(g.id)?'checked':''} onchange="toggleGigSel('${g.id}',this.checked)"> Can work
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--cream3);white-space:nowrap;padding-top:4px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleGigSel('${g.id}',this.checked)" style="accent-color:var(--pink)"> Can work
       </label>
     </div>`;
   }).join('');
 }
 
-function renderStaffClockSelects() {
-  const names = [...new Set(rotaData.map(r=>r.staff_name))].sort();
-  const nameSel = document.getElementById('sc-name');
-  const gigSel = document.getElementById('sc-gig');
-  nameSel.innerHTML = '<option value="">— select your name —</option>' + names.map(n=>`<option>${n}</option>`).join('');
-  gigSel.innerHTML = '<option value="">— select gig —</option>' + gigs.map(g=>`<option value="${g.id}">${g.name} — ${fmt(g.date)}</option>`).join('');
+function renderStaffClockSelect(){
+  const sel=document.getElementById('sc-gig');
+  sel.innerHTML='<option value="">— select show —</option>'+gigs.map(g=>`<option value="${g.id}">${g.name} — ${fmt(g.date)}</option>`).join('');
 }
 
-// ── ACTIONS ────────────────────────────────────────────────────────────────────
-async function addGig() {
-  const name=document.getElementById('ng-name').value.trim();
-  const date=document.getElementById('ng-date').value;
-  const venue=document.getElementById('ng-venue').value.trim()||'TBC';
-  if(!name||!date) { showToast('Please fill in the gig name and date.'); return; }
-  const gig = {name,date,venue};
-  if(db && !offline) {
-    const {data,error} = await db.from('gigs').insert(gig).select().single();
-    if(error) { showToast('Error saving gig.'); return; }
-    gigs.push(data);
-  } else {
-    gigs.push({...gig, id: Date.now().toString()});
+// ── QR CODE ──
+function showQRModal(gigId,gigName,gigDate){
+  const baseUrl=location.origin+location.pathname;
+  const url=`${baseUrl}?qr=${gigId}`;
+  document.getElementById('qr-modal-title').textContent=gigName;
+  document.getElementById('qr-modal-sub').textContent=fmt(gigDate);
+  document.getElementById('qr-modal').classList.remove('hidden');
+  QRCode.toCanvas(document.getElementById('qr-canvas'),url,{width:220,color:{dark:'#0e0d0b',light:'#f0ead8'}},err=>{if(err)console.error(err);});
+}
+function showQRForSelected(){
+  const sel=document.getElementById('clock-gig-sel');
+  const g=gigs.find(x=>x.id===sel.value);
+  if(g)showQRModal(g.id,g.name,g.date);
+}
+function closeQRModal(){document.getElementById('qr-modal').classList.add('hidden');}
+
+// ── HEADFIRST IMPORT ──
+async function openHFImport(){
+  document.getElementById('hf-modal').classList.remove('hidden');
+  document.getElementById('hf-results').innerHTML='<div class="loading">Fetching from Headfirst...</div>';
+  try{
+    const res=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(HF_URL)}`);
+    const json=await res.json();
+    const html=json.contents;
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(html,'text/html');
+    // Parse event links — pattern: /whats-on/gaffe-comedy-club/DAY-DD-MON-name-ID
+    const links=[...doc.querySelectorAll('a[href*="/whats-on/gaffe-comedy-club/"]')];
+    const seen=new Set();
+    hfImportShows=[];
+    links.forEach(a=>{
+      const href=a.getAttribute('href');
+      if(!href||seen.has(href))return;
+      seen.add(href);
+      const m=href.match(/\/(mon|tue|wed|thu|fri|sat|sun)-(\d{1,2})-(\w+)-(.+)-(\d+)$/i);
+      if(!m)return;
+      const dayName=m[1],dayNum=parseInt(m[2]),monthStr=m[3];
+      const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+      const monthIdx=months[monthStr.toLowerCase()];
+      if(monthIdx===undefined)return;
+      const now=new Date();
+      let year=now.getFullYear();
+      const d=new Date(year,monthIdx,dayNum);
+      if(d<now)d.setFullYear(year+1);
+      const dateStr=d.toISOString().split('T')[0];
+      const titleEl=a.querySelector('h2,h3,strong')||a;
+      const title=(titleEl.textContent||'').trim().replace(/\s+/g,' ');
+      if(!title||title.length<3)return;
+      // Skip if already in gigs
+      if(gigs.some(g=>g.headfirst_url&&g.headfirst_url.includes(m[5])))return;
+      hfImportShows.push({name:title,date:dateStr,venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk'+href});
+    });
+    if(!hfImportShows.length){
+      document.getElementById('hf-results').innerHTML='<p style="font-size:13px;color:var(--cream3);text-align:center">No new shows found — they may already be imported.</p>';
+      return;
+    }
+    document.getElementById('hf-results').innerHTML=`<div class="import-result">${hfImportShows.map((s,i)=>`
+      <div class="import-row">
+        <div><div class="import-name">${s.name}</div><div class="import-date">${fmt(s.date)}</div></div>
+        <input class="import-check" type="checkbox" id="hf-${i}" checked>
+      </div>`).join('')}</div>`;
+  }catch(e){
+    document.getElementById('hf-results').innerHTML='<p style="font-size:13px;color:#e74c3c;text-align:center">Could not fetch Headfirst — try again shortly.</p>';
+  }
+}
+
+async function importSelectedShows(){
+  const toImport=hfImportShows.filter((_,i)=>document.getElementById(`hf-${i}`)?.checked);
+  if(!toImport.length){showToast('No shows selected.');return;}
+  for(const s of toImport){
+    const{data,error}=await db.from('gigs').insert(s).select().single();
+    if(!error&&data)gigs.push(data);
   }
   gigs.sort((a,b)=>a.date.localeCompare(b.date));
-  document.getElementById('ng-name').value='';
-  document.getElementById('ng-date').value='';
-  document.getElementById('ng-venue').value='';
+  closeHFModal();renderAll();showToast(`${toImport.length} show${toImport.length>1?'s':''} imported!`);
+}
+function closeHFModal(){document.getElementById('hf-modal').classList.add('hidden');}
+
+// ── ACTIONS ──
+async function addGig(){
+  const name=document.getElementById('ng-name').value.trim(),date=document.getElementById('ng-date').value,venue=document.getElementById('ng-venue').value.trim()||'TBC';
+  if(!name||!date){showToast('Fill in show name and date.');return;}
+  const{data,error}=await db.from('gigs').insert({name,date,venue}).select().single();
+  if(error){showToast('Error saving.');return;}
+  gigs.push(data);gigs.sort((a,b)=>a.date.localeCompare(b.date));
+  ['ng-name','ng-date','ng-venue'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('gig-form').classList.add('hidden');
-  renderAll();
-  showToast('Gig added!');
+  renderAll();showToast('Show added!');
 }
 
-async function deleteGig(id) {
-  if(!confirm('Remove this gig from the rota?')) return;
-  if(db && !offline) { await db.from('gigs').delete().eq('id',id); }
-  gigs = gigs.filter(g=>g.id!==id);
-  availability = availability.filter(a=>a.gig_id!==id);
-  rotaData = rotaData.filter(r=>r.gig_id!==id);
-  clockEvents = clockEvents.filter(c=>c.gig_id!==id);
-  renderAll();
-  showToast('Gig removed.');
+async function deleteGig(id){
+  if(!confirm('Remove this show?'))return;
+  await db.from('gigs').delete().eq('id',id);
+  gigs=gigs.filter(g=>g.id!==id);availability=availability.filter(a=>a.gig_id!==id);
+  rotaData=rotaData.filter(r=>r.gig_id!==id);clockEvents=clockEvents.filter(c=>c.gig_id!==id);
+  renderAll();showToast('Show removed.');
 }
 
-async function publishRota() {
-  const newRota = [];
-  for(const g of gigs) {
-    const roles = rolesFor(g);
-    roles.forEach((role,idx)=>{
-      const sel = document.getElementById(`sel-${g.id}-${role}-${idx}`);
-      if(sel && sel.value) newRota.push({gig_id:g.id, staff_name:sel.value, role});
+async function publishRota(){
+  const newRota=[];
+  for(const g of gigs){
+    rolesFor(g).forEach((role,idx)=>{
+      const sel=document.getElementById(`sel-${g.id}-${role}-${idx}`);
+      if(sel&&sel.value){
+        const profile=profiles.find(p=>p.name===sel.value);
+        newRota.push({gig_id:g.id,user_id:profile?.id||null,staff_name:sel.value,role});
+      }
     });
   }
-  if(db && !offline) {
-    const gigIds = gigs.map(g=>g.id);
-    for(const gid of gigIds) { await db.from('rota').delete().eq('gig_id',gid); }
-    if(newRota.length) { await db.from('rota').insert(newRota); }
-  }
-  rotaData = newRota;
+  for(const g of gigs)await db.from('rota').delete().eq('gig_id',g.id);
+  if(newRota.length)await db.from('rota').insert(newRota);
+  rotaData=newRota;
   document.getElementById('rota-form').classList.add('hidden');
-  renderRota();
-  showToast('Rota published!');
+  renderRota();showToast('Rota published!');
 }
 
-async function postAnnouncement() {
-  const title=document.getElementById('ann-title').value.trim();
-  const body=document.getElementById('ann-body').value.trim();
-  if(!title||!body) { showToast('Please fill in title and message.'); return; }
-  const ann = {title, body, created_at: new Date().toISOString()};
-  if(db && !offline) {
-    const {data,error} = await db.from('announcements').insert(ann).select().single();
-    if(error) { showToast('Error posting announcement.'); return; }
-    announcements.unshift(data);
-  } else {
-    announcements.unshift({...ann, id: Date.now().toString()});
-  }
-  document.getElementById('ann-title').value='';
-  document.getElementById('ann-body').value='';
+async function postAnnouncement(){
+  const title=document.getElementById('ann-title').value.trim(),body=document.getElementById('ann-body').value.trim();
+  if(!title||!body){showToast('Fill in title and message.');return;}
+  const{data,error}=await db.from('announcements').insert({title,body,created_at:new Date().toISOString()}).select().single();
+  if(error){showToast('Error posting.');return;}
+  announcements.unshift(data);
+  ['ann-title','ann-body'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ann-form').classList.add('hidden');
-  renderAnnouncements();
-  showToast('Announcement posted!');
+  renderAnnouncements();showToast('Announcement posted!');
 }
 
-async function submitAvailability() {
-  const name=document.getElementById('staff-name').value.trim();
-  if(!name) { showToast('Please enter your name.'); return; }
-  if(db && !offline) {
-    await db.from('availability').delete().eq('staff_name',name);
-    if(selectedGigIds.length) {
-      await db.from('availability').insert(selectedGigIds.map(gig_id=>({staff_name:name,gig_id})));
-    }
-  }
-  availability = availability.filter(a=>a.staff_name!==name);
-  selectedGigIds.forEach(gid=>availability.push({staff_name:name,gig_id:gid}));
+async function submitAvailability(){
+  if(!currentUser){showToast('Please sign in first.');return;}
+  await db.from('availability').delete().eq('user_id',currentUser.id);
+  if(selectedGigIds.length)await db.from('availability').insert(selectedGigIds.map(gig_id=>({user_id:currentUser.id,gig_id})));
+  availability=availability.filter(a=>a.user_id!==currentUser.id);
+  selectedGigIds.forEach(gid=>availability.push({user_id:currentUser.id,gig_id:gid}));
   selectedGigIds=[];
-  document.getElementById('staff-name').value='';
-  renderStaffAvailGigs();
-  renderGigs();
-  renderAvailSummary();
-  renderStats();
-  showToast(`Thanks ${name}! Availability saved.`);
+  renderStaffAvailGigs();renderGigs();renderAvailSummary();renderStats();
+  showToast('Availability saved!');
 }
 
-async function managerClock(gigId, name, direction) {
-  const evt = {gig_id:gigId, staff_name:name, direction, ts:new Date().toISOString()};
-  if(db && !offline) {
-    const {data,error} = await db.from('clock_events').insert(evt).select().single();
-    if(error) { showToast('Error recording clock event.'); return; }
-    clockEvents.push(data);
-  } else {
-    clockEvents.push({...evt, id: Date.now().toString()});
-  }
-  renderClockPanel();
-  renderAllGigCosts();
-  renderStats();
+async function managerClock(gigId,name,direction){
+  const profile=profiles.find(p=>p.name===name);
+  const evt={gig_id:gigId,user_id:profile?.id||null,staff_name:name,direction,ts:new Date().toISOString()};
+  const{data,error}=await db.from('clock_events').insert(evt).select().single();
+  if(error){showToast('Error recording.');return;}
+  clockEvents.push(data);renderClockPanel();renderAllGigCosts();renderStats();
   showToast(`${name} signed ${direction}.`);
 }
 
-async function staffClockAction(direction) {
-  const name=document.getElementById('sc-name').value;
-  const gigId=document.getElementById('sc-gig').value;
-  const statusEl=document.getElementById('sc-status');
-  if(!name||!gigId) { statusEl.textContent='Please select your name and gig.'; return; }
-  const onRota = rotaData.find(r=>r.gig_id===gigId&&r.staff_name===name);
-  if(!onRota) { statusEl.textContent=`${name} isn't on the rota for this gig.`; return; }
-  if(direction==='in'&&isClocked(gigId,name)) { statusEl.textContent=`${name} is already signed in.`; return; }
-  if(direction==='out'&&!isClocked(gigId,name)) { statusEl.textContent=`${name} isn't currently signed in.`; return; }
-  await managerClock(gigId, name, direction);
-  statusEl.style.color = direction==='in'?'var(--success)':'var(--danger)';
-  statusEl.textContent = `${name} signed ${direction} at ${fmtTime(new Date())}.`;
+async function staffClockAction(direction){
+  const gigId=document.getElementById('sc-gig').value,s=document.getElementById('sc-status');
+  if(!gigId){s.textContent='Please select a show.';return;}
+  if(!currentUser){s.textContent='Please sign in.';return;}
+  const{data:profile}=await db.from('profiles').select('*').eq('id',currentUser.id).single();
+  const name=profile?.name||currentUser.email;
+  const onRota=rotaData.find(r=>r.gig_id===gigId&&r.user_id===currentUser.id);
+  if(!onRota){s.textContent=`You're not on the rota for this show.`;return;}
+  const clocked=isClocked(gigId,currentUser.id);
+  if(direction==='in'&&clocked){s.textContent='You are already signed in.';return;}
+  if(direction==='out'&&!clocked){s.textContent='You are not currently signed in.';return;}
+  const evt={gig_id:gigId,user_id:currentUser.id,staff_name:name,direction,ts:new Date().toISOString()};
+  await db.from('clock_events').insert(evt);
+  clockEvents.push({...evt,id:Date.now().toString()});
+  s.style.color=direction==='in'?'var(--green)':'#e74c3c';
+  s.textContent=`Signed ${direction} at ${fmtTime(new Date())}.`;
 }
 
-function toggleGigSel(id, checked) {
-  if(checked) { if(!selectedGigIds.includes(id)) selectedGigIds.push(id); }
-  else { selectedGigIds=selectedGigIds.filter(x=>x!==id); }
+function toggleGigSel(id,checked){
+  if(checked){if(!selectedGigIds.includes(id))selectedGigIds.push(id);}
+  else{selectedGigIds=selectedGigIds.filter(x=>x!==id);}
+}
+function toggleRota(){toggle('rota-form');if(!document.getElementById('rota-form').classList.contains('hidden'))renderRotaAssign();}
+
+// ── NAV ──
+function switchMode(m){
+  document.getElementById('manager-view').classList.toggle('hidden',m!=='manager');
+  document.getElementById('staff-view').classList.toggle('hidden',m==='manager');
+  document.getElementById('btn-manager').classList.toggle('active',m==='manager');
+  document.getElementById('btn-staff').classList.toggle('active',m!=='manager');
+  if(m==='staff'){renderAnnouncements();renderStaffAvailGigs();renderStaffRotaDisplay();renderStaffClockSelect();}
+}
+function showTab(id){
+  ['t-overview','t-rota','t-clock','t-announce'].forEach(t=>document.getElementById(t).classList.toggle('hidden',t!==id));
+  document.querySelectorAll('#manager-view .tab').forEach((b,i)=>b.classList.toggle('active',['t-overview','t-rota','t-clock','t-announce'][i]===id));
+  activeManagerTab=id;
+  if(id==='t-clock'){renderClockGigSelect();renderClockPanel();renderAllGigCosts();}
+  if(id==='t-rota')renderRota();
+}
+function showStaffTab(id){
+  ['st-announce','st-avail','st-rota','st-clock'].forEach(t=>document.getElementById(t).classList.toggle('hidden',t!==id));
+  document.querySelectorAll('#staff-view .tab').forEach((b,i)=>b.classList.toggle('active',['st-announce','st-avail','st-rota','st-clock'][i]===id));
 }
 
-// ── NAVIGATION ────────────────────────────────────────────────────────────────
-function switchMode(m) {
-  document.getElementById('manager-view').classList.toggle('hidden', m!=='manager');
-  document.getElementById('staff-view').classList.toggle('hidden', m==='manager');
-  document.getElementById('btn-manager').classList.toggle('active', m==='manager');
-  document.getElementById('btn-staff').classList.toggle('active', m!=='manager');
-  if(m==='staff') {
-    renderAnnouncements();
-    renderStaffAvailGigs();
-    renderStaffRotaDisplay();
-    renderStaffClockSelects();
-  }
-}
-
-function showTab(id) {
-  ['t-overview','t-rota','t-clock','t-announce'].forEach(t=>{
-    document.getElementById(t).classList.toggle('hidden', t!==id);
-  });
-  document.querySelectorAll('#manager-view .tab').forEach((b,i)=>{
-    b.classList.toggle('active', ['t-overview','t-rota','t-clock','t-announce'][i]===id);
-  });
-  activeManagerTab = id;
-  if(id==='t-clock') { renderClockGigSelect(); renderClockPanel(); renderAllGigCosts(); }
-  if(id==='t-rota') { renderRota(); }
-}
-
-function showStaffTab(id) {
-  ['st-announce','st-avail','st-rota','st-clock'].forEach(t=>{
-    document.getElementById(t).classList.toggle('hidden', t!==id);
-  });
-  document.querySelectorAll('#staff-view .tab').forEach((b,i)=>{
-    b.classList.toggle('active', ['st-announce','st-avail','st-rota','st-clock'][i]===id);
-  });
-}
-
-// Open rota form and populate selects
-document.querySelectorAll && document.addEventListener('click', e=>{
-  if(e.target && e.target.textContent==='✏ Build rota') {
-    const f = document.getElementById('rota-form');
-    if(!f.classList.contains('hidden')) renderRotaAssign();
-  }
-});
-// Also hook the button properly
-const rotaFormToggleBtn = document.querySelector('[onclick="toggle(\'rota-form\')"]');
-if(rotaFormToggleBtn) {
-  rotaFormToggleBtn.addEventListener('click', ()=>{
-    setTimeout(()=>{ if(!document.getElementById('rota-form').classList.contains('hidden')) renderRotaAssign(); }, 0);
-  });
-}
-
-// Auto-refresh clock panel every 60s if on that tab
-setInterval(()=>{
-  if(activeManagerTab==='t-clock') { renderClockPanel(); renderAllGigCosts(); }
-  renderStats();
-}, 60000);
+setInterval(()=>{if(activeManagerTab==='t-clock'){renderClockPanel();renderAllGigCosts();}renderStats();},60000);
 </script>
 </body>
 </html>
