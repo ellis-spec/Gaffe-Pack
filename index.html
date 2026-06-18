@@ -960,6 +960,30 @@ function showSTab(id){
 }
 
 setInterval(()=>{if(mTab==='t-clock'){renderClockPanel();renderAllCosts();}renderStats();},60000);
+
+// Re-check session when user comes back to the app
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='visible'&&db){
+    try{
+      const{data:{session}}=await db.auth.getSession();
+      if(session&&!document.getElementById('app').style.display.includes('none')){
+        // Session still valid - just refresh data
+        await loadAll();
+      } else if(!session&&document.getElementById('app').style.display!=='none'){
+        // Session dropped - try to refresh it
+        const{data,error}=await db.auth.refreshSession();
+        if(data.session){
+          await loadAll();
+        } else {
+          // Can't recover - send back to login
+          document.getElementById('app').style.display='none';
+          document.getElementById('auth-screen').style.display='flex';
+          showToast('Session expired — please sign in again.');
+        }
+      }
+    }catch(e){console.log('Visibility session check:',e);}
+  }
+});
 </script>
 </body>
 </html>
