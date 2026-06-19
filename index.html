@@ -519,17 +519,95 @@ create policy "all" on timesheets for all using(true) with check(true);</textare
 </div>
 
 <script>
+const SB_URL='https://zyuyzpntcksmgpozxjkl.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5dXl6cG50Y2tzbWdwb3p4amtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNzg2NjEsImV4cCI6MjA5NDg1NDY2MX0.OvQukd4_jniMPGVtNGjC3z7nB-ZPGDNsmx6fNrLxwxE';
 const RATES={'Bar staff':13,'Venue manager':13.5,'Assistant venue manager':13.25};
 const ROLES_STD=['Venue manager','Bar staff','Bar staff'];
 const ROLES_BIG=['Venue manager','Assistant venue manager','Bar staff','Bar staff'];
 const HF_URL='https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club';
 
-let db=null,me=null,myP=null;
+let accessToken=null,refreshToken=null,me=null,myP=null;
 let gigs=[],avail=[],rota=[],clocks=[],anns=[],profiles=[],sheets=[];
 let selIds=[];
 let mTab='t-ov',sTab='st-ann';
 let hfShows=[];
 
+// ── PURE REST API (no Supabase library needed) ──
+const H=()=>({'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+(accessToken||SB_KEY)});
+const REST=SB_URL+'/rest/v1';
+const AUTH=SB_URL+'/auth/v1';
+
+async function sbFetch(url,opts={}){
+  const r=await fetch(url,{...opts,headers:{...H(),...(opts.headers||{})}});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error_description||r.statusText);}
+  const text=await r.text();
+  return text?JSON.parse(text):null;
+}
+
+async function dbSelect(table,query=''){
+  return sbFetch(`${REST}/${table}?${query}&apikey=${SB_KEY}`);
+}
+async function dbInsert(table,data){
+  return sbFetch(`${REST}/${table}`,{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(data)});
+}
+async function dbUpdate(table,match,data){
+  const q=Object.entries(match).map(([k,v])=>`${k}=eq.${v}`).join('&');
+  return sbFetch(`${REST}/${table}?${q}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(data)});
+}
+async function dbDelete(table,match){
+  const q=Object.entries(match).map(([k,v])=>`${k}=eq.${encodeURIComponent(v)}`).join('&');
+  return sbFetch(`${REST}/${table}?${q}`,{method:'DELETE'});
+}
+async function dbUpsert(table,data){
+  return sbFetch(`${REST}/${table}`,{method:'POST',headers:{Prefer:'return=representation,resolution=merge-duplicates'},body:JSON.stringify(data)});
+}
+
+async function authSignIn(email,password){
+  const r=await fetch(`${AUTH}/token?grant_type=password`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({email,password})});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error_description||d.message||'Sign in failed');
+  accessToken=d.access_token;refreshToken=d.refresh_token;
+  localStorage.setItem('gp-at',accessToken);localStorage.setItem('gp-rt',refreshToken);
+  return d;
+}
+async function authSignUp(email,password){
+  const r=await fetch(`${AUTH}/signup`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({email,password})});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error_description||d.message||'Sign up failed');
+  return d;
+}
+async function authSignOut(){
+  await fetch(`${AUTH}/logout`,{method:'POST',headers:H()}).catch(()=>{});
+  accessToken=null;refreshToken=null;me=null;myP=null;
+  localStorage.removeItem('gp-at');localStorage.removeItem('gp-rt');
+}
+async function authRefresh(){
+  const rt=localStorage.getItem('gp-rt');if(!rt)return false;
+  const r=await fetch(`${AUTH}/token?grant_type=refresh_token`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({refresh_token:rt})});
+  const d=await r.json();
+  if(!r.ok)return false;
+  accessToken=d.access_token;refreshToken=d.refresh_token;
+  localStorage.setItem('gp-at',accessToken);localStorage.setItem('gp-rt',refreshToken);
+  return d;
+}
+async function getUser(){
+  const r=await fetch(`${AUTH}/user`,{headers:H()});
+  if(!r.ok)return null;
+  return r.json();
+}
+
+// ── QR CODE (inline, no library) ──
+function showQRModal(gigId,gigName,gigDate){
+  const url=`${location.origin}${location.pathname}?qr=${gigId}`;
+  document.getElementById('qrm-t').textContent=gigName;
+  document.getElementById('qrm-s').textContent=fmt(gigDate);
+  document.getElementById('qr-modal').classList.remove('hidden');
+  // Simple QR using goqr.me API image
+  document.getElementById('qr-canvas').innerHTML=`<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}&bgcolor=0e0d0b&color=f0ead8" style="border-radius:8px;width:220px;height:220px">`;
+}
+function showQRForSel(){const gigId=document.getElementById('clock-sel').value,g=gigs.find(x=>x.id===gigId);if(g)showQRModal(g.id,g.name,g.date);}
+
+// ── UTILS ──
 const isBig=d=>{const v=new Date(d).getDay();return v===5||v===6;};
 const rolesFor=g=>isBig(g.date)?ROLES_BIG:ROLES_STD;
 const fmt=d=>new Date(d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
@@ -542,108 +620,119 @@ function closeModal(id){document.getElementById(id).classList.add('hidden');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
 function setErr(id,m){const e=document.getElementById(id);if(!e)return;e.textContent=m;e.style.display=m?'block':'none';}
 function setMsg(id,m){const e=document.getElementById(id);if(!e)return;e.textContent=m;e.style.display=m?'block':'none';}
-function rbadge(r){if(r==='Venue manager')return'<span class="badge bb">VM</span>';if(r==='Assistant venue manager')return'<span class="badge bp">Asst. Mgr</span>';return'<span class="badge bm">Bar</span>';}
+function rbadge(r){if(r==='Venue manager')return'<span class="badge bb">VM</span>';if(r==='Assistant venue manager')return'<span class="badge bp">Asst.</span>';return'<span class="badge bm">Bar</span>';}
 
-// CLOCK HELPERS
+// ── CLOCK HELPERS ──
 function isClocked(gid,name){const e=clocks.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));return e.length>0&&e[e.length-1].direction==='in';}
 function isClockedUID(gid,uid){const e=clocks.filter(e=>e.gig_id===gid&&e.user_id===uid).sort((a,b)=>new Date(a.ts)-new Date(b.ts));return e.length>0&&e[e.length-1].direction==='in';}
 function hoursW(gid,name){const evts=clocks.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));let tot=0,inT=null;evts.forEach(e=>{if(e.direction==='in')inT=new Date(e.ts);else if(e.direction==='out'&&inT){tot+=new Date(e.ts)-inT;inT=null;}});if(inT)tot+=Date.now()-inT;return tot/3600000;}
 function costFor(gid,name){const p=rota.find(r=>r.gig_id===gid&&r.staff_name===name);return hoursW(gid,name)*(p?RATES[p.role]||13:13);}
 function lastEvt(gid,name){const e=clocks.filter(e=>e.gig_id===gid&&e.staff_name===name).sort((a,b)=>new Date(a.ts)-new Date(b.ts));return e.length?e[e.length-1]:null;}
 
-// CONFIG
-function getSB(){return{url:localStorage.getItem('gp-url'),key:localStorage.getItem('gp-key')};}
-function showSetup(){document.getElementById('setup-panel').classList.remove('hidden');document.getElementById('login-panel').classList.add('hidden');}
-function hideSetup(){document.getElementById('setup-panel').classList.add('hidden');document.getElementById('login-panel').classList.remove('hidden');}
-function saveConfig(){
-  const url=document.getElementById('sb-url').value.trim().replace(/\/$/,'');
-  const key=document.getElementById('sb-key').value.trim();
-  if(!url||!key){setErr('cfg-err','Please fill in both fields.');return;}
-  if(!url.startsWith('https://')){setErr('cfg-err','URL must start with https://');return;}
-  localStorage.setItem('gp-url',url);
-  localStorage.setItem('gp-key',key);
-  db=supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  hideSetup();
-  toast('Saved! Now sign in or create an account.');
-}
-
-// AUTH
+// ── AUTH ──
 function switchATab(t){document.getElementById('form-in').classList.toggle('hidden',t!=='in');document.getElementById('form-up').classList.toggle('hidden',t!=='up');document.getElementById('atab-in').classList.toggle('active',t==='in');document.getElementById('atab-up').classList.toggle('active',t==='up');}
+
 async function doSignIn(){
   const em=document.getElementById('in-em').value.trim(),pw=document.getElementById('in-pw').value;
   if(!em||!pw){setErr('in-err','Please fill in email and password.');return;}
-  setErr('in-err','');
+  setErr('in-err','Signing in...');
   try{
-    if(!db){setErr('in-err','Database not connected. Please reload the page.');return;}
-    setErr('in-err','Signing in...');
-    const{data,error}=await db.auth.signInWithPassword({email:em,password:pw});
-    if(error){setErr('in-err','Error: '+error.message);return;}
-    if(!data.session){setErr('in-err','No session returned — check your email is verified.');return;}
-    setErr('in-err','');
-  }catch(e){
-    setErr('in-err','Failed: '+(e.message||JSON.stringify(e)));
-  }
+    const d=await authSignIn(em,pw);
+    me={id:d.user.id,email:d.user.email};
+    await afterSignIn();
+  }catch(e){setErr('in-err',e.message);}
 }
+
 async function doSignUp(){
   const nm=document.getElementById('up-nm').value.trim(),em=document.getElementById('up-em').value.trim(),pw=document.getElementById('up-pw').value;
   if(!nm||!em||!pw){setErr('up-err','Please fill in all fields.');return;}
-  setErr('up-err','');
-  const{data,error}=await db.auth.signUp({email:em,password:pw});
-  if(error){setErr('up-err',error.message);return;}
-  if(data.user){await db.from('profiles').upsert({id:data.user.id,name:nm,role:'staff',hourly_rate:0});setMsg('up-msg','Account created! Check your email to verify, then sign in.');switchATab('in');}
-}
-async function doSignOut(){await db.auth.signOut();location.reload();}
-
-// INIT
-const SB_URL='https://zyuyzpntcksmgpozxjkl.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5dXl6cG50Y2tzbWdwb3p4amtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNzg2NjEsImV4cCI6MjA5NDg1NDY2MX0.OvQukd4_jniMPGVtNGjC3z7nB-ZPGDNsmx6fNrLxwxE';
-
-// Initialise db immediately so it's ready before any button is clicked
-try {
-  db = supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-} catch(e) {
-  console.error('Supabase init failed:', e);
+  setErr('up-err','Creating account...');
+  try{
+    const d=await authSignUp(em,pw);
+    if(d.user){
+      // Store name for after verification
+      localStorage.setItem('gp-pending-name',nm);
+      setMsg('up-msg','Account created! Check your email to verify, then sign in.');
+      switchATab('in');
+    }
+  }catch(e){setErr('up-err',e.message);}
 }
 
+async function doSignOut(){
+  await authSignOut();
+  document.getElementById('app').style.display='none';
+  document.getElementById('auth-screen').style.display='flex';
+}
+
+async function afterSignIn(){
+  // Get or create profile
+  try{
+    const rows=await dbSelect('profiles',`id=eq.${me.id}&select=*`);
+    if(rows&&rows.length){
+      myP=rows[0];
+    } else {
+      const pendingName=localStorage.getItem('gp-pending-name')||me.email;
+      const inserted=await dbInsert('profiles',{id:me.id,name:pendingName,role:'staff',hourly_rate:0});
+      myP=Array.isArray(inserted)?inserted[0]:inserted;
+      localStorage.removeItem('gp-pending-name');
+    }
+  }catch(e){myP={id:me.id,name:me.email,role:'staff',hourly_rate:0};}
+
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('userlbl').textContent=myP.name||me.email;
+  const isMgr=myP.role==='manager';
+  if(isMgr)document.getElementById('mtog').classList.remove('hidden');
+  if(!isMgr)switchMode('staff');
+  const td=document.getElementById('ts-date');if(td)td.value=new Date().toISOString().split('T')[0];
+  await loadAll();
+}
+
+// ── INIT ──
 window.addEventListener('DOMContentLoaded',async()=>{
   const params=new URLSearchParams(location.search);
   const qrGig=params.get('qr');
-  if(!db) {
-    db=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  }
   if(qrGig){await initQR(qrGig);return;}
-  db.auth.onAuthStateChange(async(event,session)=>{
-    if(session){
-      me=session.user;
-      const{data}=await db.from('profiles').select('*').eq('id',me.id).single();
-      myP=data||{name:me.email,role:'staff',hourly_rate:0};
-      await loadAll();
-      document.getElementById('auth-screen').style.display='none';
-      document.getElementById('app').style.display='block';
-      document.getElementById('userlbl').textContent=myP.name||me.email;
-      const isMgr=myP.role==='manager';
-      if(isMgr)document.getElementById('mtog').classList.remove('hidden');
-      if(!isMgr)switchMode('staff');
-      const td=document.getElementById('ts-date');if(td)td.value=new Date().toISOString().split('T')[0];
+
+  // Try to restore session from localStorage
+  const at=localStorage.getItem('gp-at');
+  if(at){
+    accessToken=at;
+    try{
+      const user=await getUser();
+      if(user&&user.id){
+        me={id:user.id,email:user.email};
+        await afterSignIn();
+        return;
+      }
+    }catch(e){
+      // Token expired - try refresh
+      const refreshed=await authRefresh();
+      if(refreshed){
+        const user=await getUser();
+        if(user&&user.id){me={id:user.id,email:user.email};await afterSignIn();return;}
+      }
     }
-  });
+  }
+  // No valid session - show login
+  accessToken=null;
 });
 
-// DATA
+// ── DATA ──
 async function loadAll(){
   try{
     const[g,a,r,c,an,p,ts]=await Promise.all([
-      db.from('gigs').select('*').order('date'),
-      db.from('availability').select('*'),
-      db.from('rota').select('*'),
-      db.from('clock_events').select('*').order('ts'),
-      db.from('announcements').select('*').order('created_at',{ascending:false}),
-      db.from('profiles').select('*'),
-      db.from('timesheets').select('*').order('date',{ascending:false}),
+      dbSelect('gigs','select=*&order=date'),
+      dbSelect('availability','select=*'),
+      dbSelect('rota','select=*'),
+      dbSelect('clock_events','select=*&order=ts'),
+      dbSelect('announcements','select=*&order=created_at.desc'),
+      dbSelect('profiles','select=*'),
+      dbSelect('timesheets','select=*&order=date.desc'),
     ]);
-    gigs=g.data||[];avail=a.data||[];rota=r.data||[];clocks=c.data||[];anns=an.data||[];profiles=p.data||[];sheets=ts.data||[];
+    gigs=g||[];avail=a||[];rota=r||[];clocks=c||[];anns=an||[];profiles=p||[];sheets=ts||[];
     renderAll();
-  }catch(e){console.error(e);}
+  }catch(e){console.error('Load error:',e);toast('Error loading data: '+e.message);}
 }
 
 function renderAll(){
@@ -652,7 +741,7 @@ function renderAll(){
   if(mTab==='t-ts'){renderTSStats();renderTSFilter();renderTSMgr();}
 }
 
-// STATS
+// ── STATS ──
 function renderStats(){
   document.getElementById('s-gigs').textContent=gigs.length;
   document.getElementById('s-staff').textContent=profiles.length;
@@ -661,7 +750,7 @@ function renderStats(){
   document.getElementById('s-cost').textContent=cl>0?fc(lc)+' running':'';
 }
 
-// GIGS
+// ── GIGS ──
 function renderGigs(){
   const el=document.getElementById('gig-list');
   if(!gigs.length){el.innerHTML='<p class="empty">No shows yet — add one above or import from Headfirst.</p>';return;}
@@ -677,7 +766,7 @@ function renderGigs(){
 <div class="gigfoot">
 <span class="badge ${names.length>=roles.length?'bg':names.length>0?'ba':'br'}">${names.length}/${roles.length} available</span>
 <div class="btnrow">
-<button class="icbtn qr" onclick="showQRModal('${g.id}','${g.name.replace(/'/g,"\\'")}','${g.date}')">QR Code</button>
+<button class="icbtn qr" onclick="showQRModal('${g.id}','${g.name.replace(/'/g,"\'")}','${g.date}')">QR Code</button>
 <button class="icbtn del" onclick="deleteGig('${g.id}')">Remove</button>
 </div>
 </div>
@@ -688,22 +777,27 @@ function renderGigs(){
 async function addGig(){
   const name=document.getElementById('ng-name').value.trim(),date=document.getElementById('ng-date').value,venue=document.getElementById('ng-venue').value.trim()||'TBC';
   if(!name||!date){toast('Please fill in show name and date.');return;}
-  const{data,error}=await db.from('gigs').insert({name,date,venue}).select().single();
-  if(error){toast('Error saving show.');return;}
-  gigs.push(data);gigs.sort((a,b)=>a.date.localeCompare(b.date));
-  ['ng-name','ng-date','ng-venue'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('gig-form').classList.add('hidden');
-  renderAll();toast('Show added!');
+  try{
+    const res=await dbInsert('gigs',{name,date,venue});
+    const row=Array.isArray(res)?res[0]:res;
+    gigs.push(row);gigs.sort((a,b)=>a.date.localeCompare(b.date));
+    ['ng-name','ng-date','ng-venue'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('gig-form').classList.add('hidden');
+    renderAll();toast('Show added!');
+  }catch(e){toast('Error: '+e.message);}
 }
 
 async function deleteGig(id){
   if(!confirm('Remove this show?'))return;
-  await db.from('gigs').delete().eq('id',id);
-  gigs=gigs.filter(g=>g.id!==id);avail=avail.filter(a=>a.gig_id!==id);rota=rota.filter(r=>r.gig_id!==id);clocks=clocks.filter(c=>c.gig_id!==id);
-  renderAll();toast('Show removed.');
+  try{
+    await dbDelete('gigs',{id});
+    gigs=gigs.filter(g=>g.id!==id);avail=avail.filter(a=>a.gig_id!==id);
+    rota=rota.filter(r=>r.gig_id!==id);clocks=clocks.filter(c=>c.gig_id!==id);
+    renderAll();toast('Show removed.');
+  }catch(e){toast('Error: '+e.message);}
 }
 
-// AVAILABILITY
+// ── AVAILABILITY ──
 function renderAvail(){
   const el=document.getElementById('avail-sum');
   const pw=profiles.filter(p=>avail.some(a=>a.user_id===p.id));
@@ -715,14 +809,14 @@ function renderAvail(){
   }).join('');
 }
 
-// ROTA
+// ── ROTA ──
 function renderRota(){
   const el=document.getElementById('rota-display');
   if(!gigs.length){el.innerHTML='<p class="empty">No shows yet.</p>';return;}
   el.innerHTML=gigs.map(g=>{
     const asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);
     return`<div class="rotacard">
-<div class="rotashow">${g.name}${big?` <span style="color:var(--pink);font-size:12px">&#9733;</span>`:''}</div>
+<div class="rotashow">${g.name}${big?` <span style="color:var(--pink)">&#9733;</span>`:''}</div>
 <div class="rotadate">${fmt(g.date)}</div>
 ${rolesFor(g).map((role,ri)=>{const bi=rolesFor(g).slice(0,ri).filter(r=>r==='Bar staff').length;const p=role==='Bar staff'?asgn.filter(p=>p.role==='Bar staff')[bi]:asgn.find(p=>p.role===role);return`<div class="rotarow"><span class="rotaname">${p?p.staff_name:'<span class="unfilled">Unfilled</span>'}</span>${rbadge(role)}</div>`;}).join('')}
 </div>`;
@@ -736,7 +830,7 @@ function renderRotaAssign(){
     const roles=rolesFor(g),asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);
     return`<div style="margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid var(--bd)">
 <p style="font-size:14px;font-weight:600;color:var(--cream);margin-bottom:12px">${g.name}${big?` <span style="color:var(--pink)">&#9733;</span>`:''} <span style="font-weight:400;color:var(--cream3);font-size:12px">${fmt(g.date)}</span></p>
-${av.length?roles.map((role,idx)=>{const bi=roles.slice(0,idx).filter(r=>r==='Bar staff').length;const cur=role==='Bar staff'?(asgn.filter(p=>p.role==='Bar staff')[bi]||{}).staff_name:(asgn.find(p=>p.role===role)||{}).staff_name;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">${rbadge(role)}<select id="sel-${g.id}-${role}-${idx}" class="sel" style="flex:1"><option value="">— choose —</option>${av.map(n=>`<option ${cur===n?'selected':''}>${n}</option>`).join('')}</select></div>`;}).join(''):'<p class="empty">No staff have submitted availability for this show.</p>'}
+${av.length?roles.map((role,idx)=>{const bi=roles.slice(0,idx).filter(r=>r==='Bar staff').length;const cur=role==='Bar staff'?(asgn.filter(p=>p.role==='Bar staff')[bi]||{}).staff_name:(asgn.find(p=>p.role===role)||{}).staff_name;return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">${rbadge(role)}<select id="sel-${g.id}-${role}-${idx}" class="sel" style="flex:1"><option value="">— choose —</option>${av.map(n=>`<option ${cur===n?'selected':''}>${n}</option>`).join('')}</select></div>`;}).join(''):'<p class="empty">No staff available for this show.</p>'}
 </div>`;
   }).join('');
 }
@@ -746,13 +840,16 @@ function toggleRota(){toggle('rota-form');if(!document.getElementById('rota-form
 async function publishRota(){
   const newRota=[];
   for(const g of gigs){rolesFor(g).forEach((role,idx)=>{const sel=document.getElementById(`sel-${g.id}-${role}-${idx}`);if(sel&&sel.value){const p=profiles.find(x=>x.name===sel.value);newRota.push({gig_id:g.id,user_id:p?.id||null,staff_name:sel.value,role});}});}
-  for(const g of gigs)await db.from('rota').delete().eq('gig_id',g.id);
-  if(newRota.length)await db.from('rota').insert(newRota);
-  rota=newRota;document.getElementById('rota-form').classList.add('hidden');
-  renderRota();toast('Rota published!');
+  try{
+    for(const g of gigs) await dbDelete('rota',{gig_id:g.id}).catch(()=>{});
+    if(newRota.length) await dbInsert('rota',newRota);
+    rota=newRota;
+    document.getElementById('rota-form').classList.add('hidden');
+    renderRota();toast('Rota published!');
+  }catch(e){toast('Error publishing rota: '+e.message);}
 }
 
-// ANNOUNCEMENTS
+// ── ANNOUNCEMENTS ──
 function renderAnns(){
   const html=anns.map(a=>`<div class="anncard"><div class="anntitle">${a.title}</div><div class="annbody">${a.body}</div><div class="annmeta">${fmtFull(a.created_at)}</div></div>`).join('')||'<p class="empty">No announcements yet.</p>';
   ['ann-list','staff-ann'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=html;});
@@ -761,14 +858,19 @@ function renderAnns(){
 async function postAnn(){
   const title=document.getElementById('ann-title').value.trim(),body=document.getElementById('ann-body').value.trim();
   if(!title||!body){toast('Please fill in title and message.');return;}
-  const{data,error}=await db.from('announcements').insert({title,body,created_at:new Date().toISOString()}).select().single();
-  if(error){toast('Error posting.');return;}
-  anns.unshift(data);['ann-title','ann-body'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ann-form').classList.add('hidden');renderAnns();toast('Announcement posted!');
+  try{
+    const res=await dbInsert('announcements',{title,body,created_at:new Date().toISOString()});
+    const row=Array.isArray(res)?res[0]:res;
+    anns.unshift(row);
+    ['ann-title','ann-body'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('ann-form').classList.add('hidden');
+    renderAnns();toast('Announcement posted!');
+  }catch(e){toast('Error: '+e.message);}
 }
 
-// CLOCK MANAGER
+// ── CLOCK MANAGER ──
 function renderClockSel(){const sel=document.getElementById('clock-sel'),cur=sel.value;sel.innerHTML=gigs.map(g=>`<option value="${g.id}" ${g.id===cur?'selected':''}>${g.name} — ${fmt(g.date)}</option>`).join('');}
+
 function renderClockPanel(){
   const gigId=document.getElementById('clock-sel').value||(gigs[0]&&gigs[0].id);if(!gigId)return;
   const g=gigs.find(x=>x.id===gigId),asgn=rota.filter(r=>r.gig_id===gigId);
@@ -778,73 +880,73 @@ function renderClockPanel(){
   if(!asgn.length){document.getElementById('clock-panel').innerHTML='<p class="empty">No staff assigned yet &mdash; build the rota first.</p>';return;}
   document.getElementById('clock-panel').innerHTML=`<div class="clocklist">${asgn.map(p=>{const cl=isClocked(gigId,p.staff_name),cost=costFor(gigId,p.staff_name),last=lastEvt(gigId,p.staff_name);return`<div class="clockrow"><div style="flex:1;min-width:90px"><div class="cname">${p.staff_name}</div><div class="crole">${p.role}</div>${last?`<div class="ctime">${last.direction==='in'?'In':'Out'}: ${fmtT(last.ts)}${cl?' &middot; still in':''}</div>`:''}</div><div class="cact"><span class="badge ${cl?'bg':'bm'}">${cl?'In':hoursW(gigId,p.staff_name)>0?'Out':'&mdash;'}</span><span class="ccost">${fc(cost)}</span>${cl?`<button class="cbtn out" onclick="mgrClock('${gigId}','${p.staff_name}','out')">Sign out</button>`:`<button class="cbtn in" onclick="mgrClock('${gigId}','${p.staff_name}','in')">Sign in</button>`}</div></div>`;}).join('')}</div>`;
 }
+
 function renderAllCosts(){
   document.getElementById('all-costs').innerHTML=gigs.map(g=>{const asgn=rota.filter(r=>r.gig_id===g.id);const tot=asgn.reduce((s,p)=>s+costFor(g.id,p.staff_name),0);const live=asgn.some(p=>isClocked(g.id,p.staff_name));return`<div class="allcrow"><div><span style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}</span> <span style="font-size:12px;color:var(--cream3)">${fmt(g.date)}</span></div><div style="display:flex;align-items:center;gap:9px">${live?'<span class="badge bg">Live</span>':''}<span style="font-size:17px;font-weight:600;color:var(--pink)">${fc(tot)}</span></div></div>`;}).join('')||'<p class="empty">No shows yet.</p>';
 }
+
 async function mgrClock(gigId,name,direction){
   const p=profiles.find(x=>x.name===name);
-  const evt={gig_id:gigId,user_id:p?.id||null,staff_name:name,direction,ts:new Date().toISOString()};
-  const{data,error}=await db.from('clock_events').insert(evt).select().single();
-  if(error){toast('Error recording.');return;}
-  clocks.push(data);renderClockPanel();renderAllCosts();renderStats();toast(`${name} signed ${direction}.`);
+  try{
+    const evt={gig_id:gigId,user_id:p?.id||null,staff_name:name,direction,ts:new Date().toISOString()};
+    const res=await dbInsert('clock_events',evt);
+    clocks.push(Array.isArray(res)?res[0]:res);
+    renderClockPanel();renderAllCosts();renderStats();toast(`${name} signed ${direction}.`);
+  }catch(e){toast('Error: '+e.message);}
 }
 
-// QR
-function showQRModal(gigId,gigName,gigDate){
-  const url=`${location.origin}${location.pathname}?qr=${gigId}`;
-  document.getElementById('qrm-t').textContent=gigName;document.getElementById('qrm-s').textContent=fmt(gigDate);
-  document.getElementById('qr-modal').classList.remove('hidden');
-  QRCode.toCanvas(document.getElementById('qr-canvas'),url,{width:220,color:{dark:'#0e0d0b',light:'#f0ead8'}});
-}
-function showQRForSel(){const gigId=document.getElementById('clock-sel').value,g=gigs.find(x=>x.id===gigId);if(g)showQRModal(g.id,g.name,g.date);}
-
-// QR PAGE
+// ── QR PAGE ──
 async function initQR(gigId){
-  document.getElementById('auth-screen').style.display='none';document.getElementById('qr-page').classList.add('active');
-  const{url,key}=getSB();if(!url||!key){document.getElementById('qr-body').innerHTML='<p class="empty" style="text-align:center">App not configured yet.</p>';return;}
-  db=supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  const{data:sess}=await db.auth.getSession();
-  if(!sess.session){
-    document.getElementById('qr-body').innerHTML=`<div class="card"><p style="font-size:13px;color:var(--cream3);margin-bottom:16px;text-align:center">Sign in to clock in/out</p><label class="fl">Email</label><input class="fi" id="qr-em" type="email" placeholder="your@email.com"><label class="fl">Password</label><input class="fi" id="qr-pw" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"><div id="qr-err" class="aerr"></div><button class="btn-p" onclick="qrLogin('${gigId}')">Sign in &amp; continue</button></div>`;
-    return;
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('qr-page').classList.add('active');
+  const at=localStorage.getItem('gp-at');
+  if(at){
+    accessToken=at;
+    try{const user=await getUser();if(user){me={id:user.id,email:user.email};await renderQRPanel(gigId);return;}}catch(e){}
+    const refreshed=await authRefresh();
+    if(refreshed){const user=await getUser();if(user){me={id:user.id,email:user.email};await renderQRPanel(gigId);return;}}
   }
-  me=sess.session.user;await renderQRPanel(gigId);
+  document.getElementById('qr-body').innerHTML=`<div class="card"><p style="font-size:13px;color:var(--cream3);margin-bottom:16px;text-align:center">Sign in to clock in/out</p><label class="fl">Email</label><input class="fi" id="qr-em" type="email" placeholder="your@email.com"><label class="fl">Password</label><input class="fi" id="qr-pw" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"><div id="qr-err" class="aerr"></div><button class="btn-p" onclick="qrLogin('${gigId}')">Sign in &amp; continue</button></div>`;
 }
+
 async function qrLogin(gigId){
   const em=document.getElementById('qr-em').value.trim(),pw=document.getElementById('qr-pw').value;
-  const{error}=await db.auth.signInWithPassword({email:em,password:pw});
-  if(error){setErr('qr-err',error.message);return;}
-  const{data}=await db.auth.getSession();me=data.session.user;await renderQRPanel(gigId);
-}
-async function renderQRPanel(gigId){
-  const{data:g}=await db.from('gigs').select('*').eq('id',gigId).single();
-  if(!g){document.getElementById('qr-body').innerHTML='<p class="empty" style="text-align:center">Show not found.</p>';return;}
-  document.getElementById('qr-show').textContent=g.name;document.getElementById('qr-date').textContent=fmt(g.date)+' &middot; '+(g.venue||'The Gaffe');
-  const{data:prof}=await db.from('profiles').select('*').eq('id',me.id).single();
-  const name=prof?.name||me.email;
-  const{data:evts}=await db.from('clock_events').select('*').eq('gig_id',gigId).eq('user_id',me.id).order('ts');
-  const clocked=evts&&evts.length>0&&evts[evts.length-1].direction==='in';
-  const{data:re}=await db.from('rota').select('*').eq('gig_id',gigId).eq('user_id',me.id);
-  const role=re&&re.length?re[0].role:'Staff';
-  document.getElementById('qr-body').innerHTML=`<div class="card" style="text-align:center"><p style="font-size:16px;font-weight:600;color:var(--cream);margin-bottom:3px">${name}</p><p style="font-size:12px;color:var(--cream3);margin-bottom:12px">${role}</p><p style="font-size:13px;color:${clocked?'var(--green)':'var(--cream3)'};margin-bottom:20px">${clocked?'&#10003; Currently signed in':'Not signed in'}</p><div class="two" style="margin-bottom:14px"><button class="subbtn suc" onclick="qrClock('${gigId}','${name}','in')">Sign in</button><button class="subbtn dan" onclick="qrClock('${gigId}','${name}','out')">Sign out</button></div><div id="qr-st" style="font-size:13px;color:var(--cream3);min-height:18px;text-align:center"></div></div>`;
-}
-async function qrClock(gigId,name,dir){
-  const evt={gig_id:gigId,user_id:me.id,staff_name:name,direction:dir,ts:new Date().toISOString()};
-  const{error}=await db.from('clock_events').insert(evt);
-  const s=document.getElementById('qr-st');
-  if(error){s.style.color='#e74c3c';s.textContent='Error — try again.';return;}
-  s.style.color=dir==='in'?'var(--green)':'#e74c3c';s.textContent=`Signed ${dir} at ${fmtT(new Date())}.`;
-  setTimeout(()=>renderQRPanel(gigId),1500);
+  try{const d=await authSignIn(em,pw);me={id:d.user.id,email:d.user.email};await renderQRPanel(gigId);}
+  catch(e){setErr('qr-err',e.message);}
 }
 
-// HEADFIRST
+async function renderQRPanel(gigId){
+  try{
+    const[gRows,profRows,evtRows,rotaRows]=await Promise.all([
+      dbSelect('gigs',`id=eq.${gigId}&select=*`),
+      dbSelect('profiles',`id=eq.${me.id}&select=*`),
+      dbSelect('clock_events',`gig_id=eq.${gigId}&user_id=eq.${me.id}&select=*&order=ts`),
+      dbSelect('rota',`gig_id=eq.${gigId}&user_id=eq.${me.id}&select=*`),
+    ]);
+    const g=gRows&&gRows[0];if(!g){document.getElementById('qr-body').innerHTML='<p class="empty" style="text-align:center">Show not found.</p>';return;}
+    document.getElementById('qr-show').textContent=g.name;
+    document.getElementById('qr-date').textContent=fmt(g.date)+' &middot; '+(g.venue||'The Gaffe');
+    const prof=profRows&&profRows[0];const name=prof?.name||me.email;
+    const evts=evtRows||[];const clocked=evts.length>0&&evts[evts.length-1].direction==='in';
+    const role=rotaRows&&rotaRows.length?rotaRows[0].role:'Staff';
+    document.getElementById('qr-body').innerHTML=`<div class="card" style="text-align:center"><p style="font-size:16px;font-weight:600;color:var(--cream);margin-bottom:3px">${name}</p><p style="font-size:12px;color:var(--cream3);margin-bottom:12px">${role}</p><p style="font-size:13px;color:${clocked?'var(--green)':'var(--cream3)'};margin-bottom:20px">${clocked?'&#10003; Currently signed in':'Not signed in'}</p><div class="two" style="margin-bottom:14px"><button class="subbtn suc" onclick="qrClock('${gigId}','${name}','in')">Sign in</button><button class="subbtn dan" onclick="qrClock('${gigId}','${name}','out')">Sign out</button></div><div id="qr-st" style="font-size:13px;color:var(--cream3);min-height:18px;text-align:center"></div></div>`;
+  }catch(e){document.getElementById('qr-body').innerHTML=`<p class="empty" style="text-align:center">Error: ${e.message}</p>`;}
+}
+
+async function qrClock(gigId,name,dir){
+  const s=document.getElementById('qr-st');
+  try{
+    await dbInsert('clock_events',{gig_id:gigId,user_id:me.id,staff_name:name,direction:dir,ts:new Date().toISOString()});
+    s.style.color=dir==='in'?'var(--green)':'#e74c3c';s.textContent=`Signed ${dir} at ${fmtT(new Date())}.`;
+    setTimeout(()=>renderQRPanel(gigId),1500);
+  }catch(e){s.style.color='#e74c3c';s.textContent='Error — try again.';}
+}
+
+// ── HEADFIRST ──
 async function openHF(){
   document.getElementById('hf-modal').classList.remove('hidden');
-  document.getElementById('hf-res').innerHTML='<div class="loading">Fetching from Headfirst...</div>';
-  
-  // Known upcoming shows from Headfirst — updated automatically when you click import
-  // Falls back to direct parse if proxy works, otherwise uses search results
-  const knownShows = [
+  document.getElementById('hf-res').innerHTML='<div class="loading">Loading shows from Headfirst...</div>';
+  const knownShows=[
     {name:'Rob Thomas: Content',date:'2026-06-20',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
     {name:'Flight Of Fancy: An Alternative Comedy Night',date:'2026-06-21',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
     {name:'Sharon Wanjohi: A Perfect Life',date:'2026-06-27',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
@@ -861,118 +963,88 @@ async function openHF(){
     {name:'Jayde Adams: Work in Progress',date:'2026-08-15',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
     {name:'Milo Edwards: Catamaran',date:'2026-08-22',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
     {name:'Mike Rice: Work In Progress',date:'2026-08-29',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
-    {name:'MAGNERS Cider Presents: Share the Craic Comedy Competition Heats',date:'2026-09-05',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
   ];
-
-  // Try live fetch first, fall back to known shows
-  try{
-    const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(HF_URL)}`,
-      `https://api.allorigins.win/get?url=${encodeURIComponent(HF_URL)}`,
-    ];
-    
-    let doc = null;
-    for(const proxy of proxies){
-      try{
-        const res = await fetch(proxy, {signal: AbortSignal.timeout(5000)});
-        if(!res.ok) continue;
-        const text = proxy.includes('allorigins') ? (await res.json()).contents : await res.text();
-        doc = new DOMParser().parseFromString(text, 'text/html');
-        break;
-      }catch(e){ continue; }
-    }
-
-    if(doc){
-      const links=[...doc.querySelectorAll('a[href*="/whats-on/gaffe-comedy-club/"]')];
-      const seen=new Set();const parsed=[];
-      const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
-      links.forEach(a=>{
-        const href=a.getAttribute('href');if(!href||seen.has(href))return;seen.add(href);
-        const m=href.match(/\/(mon|tue|wed|thu|fri|sat|sun)-(\d{1,2})-(\w+)-.+-(\d+)$/i);if(!m)return;
-        const mi=months[m[3].toLowerCase()];if(mi===undefined)return;
-        const now=new Date(),d=new Date(now.getFullYear(),mi,parseInt(m[2]));if(d<now)d.setFullYear(d.getFullYear()+1);
-        const date=d.toISOString().split('T')[0];
-        const tel=a.querySelector('h2,h3,p,strong')||a;const title=(tel.textContent||'').trim().replace(/\s+/g,' ');
-        if(!title||title.length<3)return;
-        if(gigs.some(g=>g.headfirst_url&&g.headfirst_url.includes(m[4])))return;
-        parsed.push({name:title,date,venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk'+href});
-      });
-      if(parsed.length>0){ hfShows=parsed; showHFResults(); return; }
-    }
-  }catch(e){ console.log('Live fetch failed, using known shows'); }
-
-  // Fall back to known shows list
-  hfShows = knownShows.filter(s => !gigs.some(g => g.name === s.name));
-  if(!hfShows.length){
-    document.getElementById('hf-res').innerHTML='<p class="empty" style="text-align:center;padding:20px">No new shows found — they may already be imported.</p>';
-    return;
-  }
-  showHFResults();
-}
-
-function showHFResults(){
+  hfShows=knownShows.filter(s=>!gigs.some(g=>g.name===s.name));
+  if(!hfShows.length){document.getElementById('hf-res').innerHTML='<p class="empty" style="text-align:center;padding:20px">No new shows to import — they may already be in the app.</p>';return;}
   document.getElementById('hf-res').innerHTML=`<div style="max-height:340px;overflow-y:auto">${hfShows.map((s,i)=>`<div class="hfrow"><div><div class="hfname">${s.name}</div><div class="hfdate">${fmt(s.date)}</div></div><input class="hfchk" type="checkbox" id="hf-${i}" checked></div>`).join('')}</div>`;
 }
+
 async function doImport(){
   const toImp=hfShows.filter((_,i)=>document.getElementById(`hf-${i}`)?.checked);
   if(!toImp.length){toast('No shows selected.');return;}
-  for(const s of toImp){const{data,error}=await db.from('gigs').insert(s).select().single();if(!error&&data)gigs.push(data);}
-  gigs.sort((a,b)=>a.date.localeCompare(b.date));closeModal('hf-modal');renderAll();toast(`${toImp.length} show${toImp.length>1?'s':''} imported!`);
+  try{
+    for(const s of toImp){const res=await dbInsert('gigs',s);const row=Array.isArray(res)?res[0]:res;if(row)gigs.push(row);}
+    gigs.sort((a,b)=>a.date.localeCompare(b.date));
+    closeModal('hf-modal');renderAll();toast(`${toImp.length} show${toImp.length>1?'s':''} imported!`);
+  }catch(e){toast('Import error: '+e.message);}
 }
 
-// STAFF
+// ── STAFF VIEWS ──
 function renderStaffRota(){
   const el=document.getElementById('staff-rota');if(!el)return;
   el.innerHTML=gigs.map(g=>{const asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);return`<div class="rotacard"><div class="rotashow">${g.name}${big?` <span style="color:var(--pink)">&#9733;</span>`:''}</div><div class="rotadate">${fmt(g.date)}</div>${asgn.length?asgn.map(p=>`<div class="rotarow"><span class="rotaname">${p.staff_name}</span>${rbadge(p.role)}</div>`).join(''):'<span class="unfilled">Rota not published yet</span>'}</div>`;}).join('')||'<p class="empty">No shows yet.</p>';
 }
+
 function renderStaffGigs(){
   const el=document.getElementById('staff-gigs');if(!el)return;
   el.innerHTML=gigs.map(g=>{const big=isBig(g.date),chk=selIds.includes(g.id)||avail.some(a=>a.gig_id===g.id&&a.user_id===me?.id);return`<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd);gap:12px"><div><div style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}${big?'<span class="bigshow" style="margin-left:7px">&#9733;</span>':''}</div><div style="font-size:12px;color:var(--cream3);margin-top:3px">${fmt(g.date)}${g.venue?' &middot; '+g.venue:''}</div></div><label style="display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;padding-top:3px;font-size:11px;color:var(--cream3);font-weight:600;letter-spacing:.05em;text-transform:uppercase"><input type="checkbox" ${chk?'checked':''} onchange="toggleSel('${g.id}',this.checked)" style="accent-color:var(--pink);width:15px;height:15px"> Can work</label></div>`;}).join('')||'<p class="empty">No shows yet.</p>';
 }
+
 function renderStaffClockSel(){const sel=document.getElementById('sc-gig');if(!sel)return;sel.innerHTML='<option value="">— select show —</option>'+gigs.map(g=>`<option value="${g.id}">${g.name} — ${fmt(g.date)}</option>`).join('');}
 function toggleSel(id,chk){if(chk){if(!selIds.includes(id))selIds.push(id);}else{selIds=selIds.filter(x=>x!==id);}}
+
 async function submitAvail(){
   if(!me){toast('Please sign in first.');return;}
-  await db.from('availability').delete().eq('user_id',me.id);
-  if(selIds.length)await db.from('availability').insert(selIds.map(gig_id=>({user_id:me.id,gig_id})));
-  avail=avail.filter(a=>a.user_id!==me.id);selIds.forEach(gid=>avail.push({user_id:me.id,gig_id:gid}));selIds=[];
-  renderStaffGigs();renderGigs();renderAvail();renderStats();toast('Availability saved!');
+  try{
+    await dbDelete('availability',{user_id:me.id});
+    if(selIds.length)await dbInsert('availability',selIds.map(gig_id=>({user_id:me.id,gig_id})));
+    avail=avail.filter(a=>a.user_id!==me.id);
+    selIds.forEach(gid=>avail.push({user_id:me.id,gig_id:gid}));
+    selIds=[];renderStaffGigs();renderGigs();renderAvail();renderStats();
+    toast('Availability saved!');
+  }catch(e){toast('Error: '+e.message);}
 }
+
 async function staffClock(dir){
   const gigId=document.getElementById('sc-gig').value,s=document.getElementById('sc-status');
   if(!gigId){s.textContent='Please select a show.';return;}
   if(!me){s.textContent='Please sign in.';return;}
-  const{data:prof}=await db.from('profiles').select('*').eq('id',me.id).single();const name=prof?.name||me.email;
   const onR=rota.find(r=>r.gig_id===gigId&&r.user_id===me.id);
   if(!onR){s.style.color='#e74c3c';s.textContent="You're not on the rota for this show.";return;}
   const cl=isClockedUID(gigId,me.id);
   if(dir==='in'&&cl){s.style.color='var(--amber)';s.textContent='You are already signed in.';return;}
   if(dir==='out'&&!cl){s.style.color='var(--amber)';s.textContent='You are not currently signed in.';return;}
-  const evt={gig_id:gigId,user_id:me.id,staff_name:name,direction:dir,ts:new Date().toISOString()};
-  await db.from('clock_events').insert(evt);clocks.push({...evt,id:Date.now().toString()});
-  s.style.color=dir==='in'?'var(--green)':'#e74c3c';s.textContent=`Signed ${dir} at ${fmtT(new Date())}.`;
+  try{
+    const name=myP?.name||me.email;
+    await dbInsert('clock_events',{gig_id:gigId,user_id:me.id,staff_name:name,direction:dir,ts:new Date().toISOString()});
+    clocks.push({gig_id:gigId,user_id:me.id,staff_name:name,direction:dir,ts:new Date().toISOString()});
+    s.style.color=dir==='in'?'var(--green)':'#e74c3c';s.textContent=`Signed ${dir} at ${fmtT(new Date())}.`;
+  }catch(e){s.style.color='#e74c3c';s.textContent='Error: '+e.message;}
 }
 
-// TIMESHEETS
+// ── TIMESHEETS ──
 async function logTS(){
   if(!me){toast('Please sign in first.');return;}
   const date=document.getElementById('ts-date').value,start=document.getElementById('ts-start').value,end=document.getElementById('ts-end').value,desc=document.getElementById('ts-desc').value.trim();
   const s=document.getElementById('ts-log-st');
   if(!date||!start||!end||!desc){s.style.color='#e74c3c';s.textContent='Please fill in all fields.';return;}
   if(end<=start){s.style.color='#e74c3c';s.textContent='End time must be after start time.';return;}
-  const hours=calcH(start,end);
-  const{data:prof}=await db.from('profiles').select('*').eq('id',me.id).single();const name=prof?.name||me.email;
-  const entry={user_id:me.id,staff_name:name,date,start_time:start,end_time:end,hours,description:desc};
-  const{data,error}=await db.from('timesheets').insert(entry).select().single();
-  if(error){s.style.color='#e74c3c';s.textContent='Error saving — try again.';return;}
-  sheets.unshift(data);['ts-start','ts-end','ts-desc'].forEach(id=>document.getElementById(id).value='');
-  s.style.color='var(--green)';s.textContent=`${hours} hrs logged &#10003;`;setTimeout(()=>{s.textContent='';},3000);
-  renderMyTS();toast(`${hours} hours logged!`);
+  const hours=calcH(start,end);const name=myP?.name||me.email;
+  try{
+    const res=await dbInsert('timesheets',{user_id:me.id,staff_name:name,date,start_time:start,end_time:end,hours,description:desc});
+    sheets.unshift(Array.isArray(res)?res[0]:res);
+    ['ts-start','ts-end','ts-desc'].forEach(id=>document.getElementById(id).value='');
+    s.style.color='var(--green)';s.textContent=`${hours} hrs logged ✓`;setTimeout(()=>{s.textContent='';},3000);
+    renderMyTS();toast(`${hours} hours logged!`);
+  }catch(e){s.style.color='#e74c3c';s.textContent='Error: '+e.message;}
 }
+
 async function deleteTS(id){
   if(!confirm('Delete this entry?'))return;
-  await db.from('timesheets').delete().eq('id',id);sheets=sheets.filter(t=>t.id!==id);renderMyTS();renderTSMgr();toast('Entry deleted.');
+  try{await dbDelete('timesheets',{id});sheets=sheets.filter(t=>t.id!==id);renderMyTS();renderTSMgr();toast('Entry deleted.');}
+  catch(e){toast('Error: '+e.message);}
 }
+
 function renderMyTS(){
   const el=document.getElementById('my-ts');if(!el)return;
   const mine=sheets.filter(t=>t.user_id===me?.id);
@@ -980,6 +1052,7 @@ function renderMyTS(){
   const tot=mine.reduce((s,t)=>s+Number(t.hours),0);
   el.innerHTML=`<div style="display:flex;justify-content:space-between;padding:10px 0;margin-bottom:6px;border-bottom:1px solid var(--bd)"><span style="font-size:13px;color:var(--cream3)">Total logged (all time)</span><span style="font-size:16px;font-weight:600;color:var(--pink)">${tot.toFixed(2)} hrs</span></div>`+mine.map(t=>`<div class="card" style="margin-bottom:8px;padding:12px 15px"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div style="flex:1"><div style="font-size:12px;color:var(--cream3)">${fmtFull(t.date)} &middot; ${t.start_time}&ndash;${t.end_time}</div><div style="font-size:13px;color:var(--cream2);margin-top:4px">${t.description}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:15px;font-weight:600;color:var(--pink)">${Number(t.hours).toFixed(2)} hrs</div><button class="icbtn del" style="margin-top:5px;font-size:10px" onclick="deleteTS('${t.id}')">Delete</button></div></div></div>`).join('');
 }
+
 function renderTSStats(){
   const el=document.getElementById('ts-stats');if(!el)return;
   const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1);
@@ -989,11 +1062,13 @@ function renderTSStats(){
   const ppl=new Set(month.map(t=>t.user_id)).size;
   el.innerHTML=`<div class="statcard"><div class="statlbl">People logging</div><div class="statval">${ppl}</div><div class="statsub">this month</div></div><div class="statcard"><div class="statlbl">Hours logged</div><div class="statval">${totH.toFixed(1)}</div><div class="statsub">this month</div></div><div class="statcard"><div class="statlbl">Labour cost</div><div class="statval" style="font-size:22px">${fc(totC)}</div><div class="statsub">this month</div></div>`;
 }
+
 function renderTSFilter(){
   const sel=document.getElementById('ts-pf');if(!sel)return;
   const wts=[...new Set(sheets.map(t=>t.user_id))].map(uid=>profiles.find(p=>p.id===uid)).filter(Boolean);
   const cur=sel.value;sel.innerHTML='<option value="">All staff</option>'+wts.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${p.name}</option>`).join('');
 }
+
 function renderTSMgr(){
   const el=document.getElementById('ts-mgr');if(!el)return;
   const pf=document.getElementById('ts-pf')?.value||'',per=document.getElementById('ts-per')?.value||'month';
@@ -1005,7 +1080,7 @@ function renderTSMgr(){
   el.innerHTML=Object.values(byP).map(person=>`<div class="tsblock"><div class="tsname">${person.name}${person.rate>0?`<span class="badge bp" style="margin-left:8px;font-size:10px">&pound;${person.rate}/hr</span>`:''}</div><div class="tsmeta">${person.entries.length} entr${person.entries.length===1?'y':'ies'}</div>${person.entries.map(t=>`<div class="tsentry"><div class="tsetop"><div style="flex:1"><div class="tsedate">${fmtFull(t.date)} &middot; ${t.start_time}&ndash;${t.end_time}</div><div class="tsedesc">${t.description}</div></div><div style="text-align:right;flex-shrink:0"><div class="tsehrs">${Number(t.hours).toFixed(2)} hrs</div>${person.rate>0?`<div class="tsecost">${fc(Number(t.hours)*person.rate)}</div>`:''}</div></div></div>`).join('')}<div class="tstots"><div class="tstot"><div class="tl">Total hours</div><div class="tv">${person.hrs.toFixed(2)}</div></div>${person.rate>0?`<div class="tstot"><div class="tl">Total cost</div><div class="tv">${fc(person.cost)}</div></div>`:''}</div></div>`).join('');
 }
 
-// NAV
+// ── NAV ──
 function switchMode(m){
   document.getElementById('mgr-view').classList.toggle('hidden',m!=='manager');
   document.getElementById('staff-view').classList.toggle('hidden',m==='manager');
@@ -1027,63 +1102,26 @@ function showSTab(id){
   sTab=id;if(id==='st-ts')renderMyTS();
 }
 
-setInterval(()=>{if(mTab==='t-clock'){renderClockPanel();renderAllCosts();}renderStats();},60000);
-
-// Re-check session when user comes back to the app
+// ── SESSION REFRESH ON VISIBILITY ──
 document.addEventListener('visibilitychange',async()=>{
-  if(document.visibilityState==='visible'&&db){
+  if(document.visibilityState==='visible'&&me){
     try{
-      const{data:{session}}=await db.auth.getSession();
-      if(session&&!document.getElementById('app').style.display.includes('none')){
-        // Session still valid - just refresh data
-        await loadAll();
-      } else if(!session&&document.getElementById('app').style.display!=='none'){
-        // Session dropped - try to refresh it
-        const{data,error}=await db.auth.refreshSession();
-        if(data.session){
-          await loadAll();
-        } else {
-          // Can't recover - send back to login
+      const user=await getUser();
+      if(user){await loadAll();}
+      else{
+        const refreshed=await authRefresh();
+        if(refreshed){await loadAll();}
+        else{
           document.getElementById('app').style.display='none';
           document.getElementById('auth-screen').style.display='flex';
-          showToast('Session expired — please sign in again.');
+          toast('Session expired — please sign in again.');
         }
       }
-    }catch(e){console.log('Visibility session check:',e);}
+    }catch(e){console.log('Session check:',e);}
   }
 });
-</script>
-<script>
-// Load Supabase with fallback CDNs
-(function(){
-  function loadScript(src, cb){
-    var s=document.createElement('script');
-    s.src=src;
-    s.onload=cb;
-    s.onerror=function(){
-      // Try unpkg as fallback
-      loadScript('https://unpkg.com/@supabase/supabase-js@2.39.8/dist/umd/supabase.js', cb);
-    };
-    document.head.appendChild(s);
-  }
-  function loadQR(cb){
-    var s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-    s.onload=cb;
-    s.onerror=function(){
-      loadScript('https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js', cb);
-    };
-    document.head.appendChild(s);
-  }
-  loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js', function(){
-    loadQR(function(){
-      // Both loaded - initialise
-      try{
-        db=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-      }catch(e){console.error('DB init:',e);}
-    });
-  });
-})();
+
+setInterval(()=>{if(mTab==='t-clock'){renderClockPanel();renderAllCosts();}renderStats();},60000);
 </script>
 </body>
 </html>
