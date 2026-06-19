@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>The Gaffe Pack — Staff App</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -1054,6 +1052,38 @@ document.addEventListener('visibilitychange',async()=>{
     }catch(e){console.log('Visibility session check:',e);}
   }
 });
+</script>
+<script>
+// Load Supabase with fallback CDNs
+(function(){
+  function loadScript(src, cb){
+    var s=document.createElement('script');
+    s.src=src;
+    s.onload=cb;
+    s.onerror=function(){
+      // Try unpkg as fallback
+      loadScript('https://unpkg.com/@supabase/supabase-js@2.39.8/dist/umd/supabase.js', cb);
+    };
+    document.head.appendChild(s);
+  }
+  function loadQR(cb){
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+    s.onload=cb;
+    s.onerror=function(){
+      loadScript('https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js', cb);
+    };
+    document.head.appendChild(s);
+  }
+  loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js', function(){
+    loadQR(function(){
+      // Both loaded - initialise
+      try{
+        db=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      }catch(e){console.error('DB init:',e);}
+    });
+  });
+})();
 </script>
 </body>
 </html>
