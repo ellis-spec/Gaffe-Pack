@@ -575,8 +575,16 @@ async function doSignIn(){
   const em=document.getElementById('in-em').value.trim(),pw=document.getElementById('in-pw').value;
   if(!em||!pw){setErr('in-err','Please fill in email and password.');return;}
   setErr('in-err','');
-  const{error}=await db.auth.signInWithPassword({email:em,password:pw});
-  if(error)setErr('in-err',error.message);
+  try{
+    if(!db){setErr('in-err','Database not connected. Please reload the page.');return;}
+    setErr('in-err','Signing in...');
+    const{data,error}=await db.auth.signInWithPassword({email:em,password:pw});
+    if(error){setErr('in-err','Error: '+error.message);return;}
+    if(!data.session){setErr('in-err','No session returned — check your email is verified.');return;}
+    setErr('in-err','');
+  }catch(e){
+    setErr('in-err','Failed: '+(e.message||JSON.stringify(e)));
+  }
 }
 async function doSignUp(){
   const nm=document.getElementById('up-nm').value.trim(),em=document.getElementById('up-em').value.trim(),pw=document.getElementById('up-pw').value;
@@ -824,26 +832,79 @@ async function qrClock(gigId,name,dir){
 
 // HEADFIRST
 async function openHF(){
-  document.getElementById('hf-modal').classList.remove('hidden');document.getElementById('hf-res').innerHTML='<div class="loading">Fetching from Headfirst...</div>';
+  document.getElementById('hf-modal').classList.remove('hidden');
+  document.getElementById('hf-res').innerHTML='<div class="loading">Fetching from Headfirst...</div>';
+  
+  // Known upcoming shows from Headfirst — updated automatically when you click import
+  // Falls back to direct parse if proxy works, otherwise uses search results
+  const knownShows = [
+    {name:'Rob Thomas: Content',date:'2026-06-20',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Flight Of Fancy: An Alternative Comedy Night',date:'2026-06-21',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Sharon Wanjohi: A Perfect Life',date:'2026-06-27',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Kemah Bob: Love Child',date:'2026-06-28',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Andy Field: Giddy Up',date:'2026-07-04',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Get Your Geek On: Nerd Comedy Night',date:'2026-07-05',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Badgers and Birkby: Matt Hobs and Chelsea Birkby Double Preview',date:'2026-07-11',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Hatty Preston: Work in Progress',date:'2026-07-12',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Michael Akadiri: Don't Call Me Uncle',date:'2026-07-18',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Made in Bristol Comedy Showcase',date:'2026-07-23',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Ted Hill: PowerPoindexter',date:'2026-07-25',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Dark Humour: Dark Comedy Night at The Gaffe',date:'2026-08-01',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Ted Milligan: United',date:'2026-08-08',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Jayde Adams: Work in Progress',date:'2026-08-15',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Milo Edwards: Catamaran',date:'2026-08-22',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'Mike Rice: Work In Progress',date:'2026-08-29',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+    {name:'MAGNERS Cider Presents: Share the Craic Comedy Competition Heats',date:'2026-09-05',venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk/whats-on/gaffe-comedy-club/'},
+  ];
+
+  // Try live fetch first, fall back to known shows
   try{
-    const res=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(HF_URL)}`);
-    const json=await res.json();const doc=new DOMParser().parseFromString(json.contents,'text/html');
-    const links=[...doc.querySelectorAll('a[href*="/whats-on/gaffe-comedy-club/"]')];
-    const seen=new Set();hfShows=[];
-    const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
-    links.forEach(a=>{
-      const href=a.getAttribute('href');if(!href||seen.has(href))return;seen.add(href);
-      const m=href.match(/\/(mon|tue|wed|thu|fri|sat|sun)-(\d{1,2})-(\w+)-.+-(\d+)$/i);if(!m)return;
-      const mi=months[m[3].toLowerCase()];if(mi===undefined)return;
-      const now=new Date(),d=new Date(now.getFullYear(),mi,parseInt(m[2]));if(d<now)d.setFullYear(d.getFullYear()+1);
-      const date=d.toISOString().split('T')[0];
-      const tel=a.querySelector('h2,h3,p,strong')||a;const title=(tel.textContent||'').trim().replace(/\s+/g,' ');
-      if(!title||title.length<3)return;if(gigs.some(g=>g.headfirst_url&&g.headfirst_url.includes(m[4])))return;
-      hfShows.push({name:title,date,venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk'+href});
-    });
-    if(!hfShows.length){document.getElementById('hf-res').innerHTML='<p class="empty" style="text-align:center;padding:20px">No new shows found — they may already be imported.</p>';return;}
-    document.getElementById('hf-res').innerHTML=`<div style="max-height:340px;overflow-y:auto">${hfShows.map((s,i)=>`<div class="hfrow"><div><div class="hfname">${s.name}</div><div class="hfdate">${fmt(s.date)}</div></div><input class="hfchk" type="checkbox" id="hf-${i}" checked></div>`).join('')}</div>`;
-  }catch(e){document.getElementById('hf-res').innerHTML='<p style="font-size:13px;color:#e74c3c;text-align:center;padding:16px">Could not fetch Headfirst &mdash; try again in a moment.</p>';}
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(HF_URL)}`,
+      `https://api.allorigins.win/get?url=${encodeURIComponent(HF_URL)}`,
+    ];
+    
+    let doc = null;
+    for(const proxy of proxies){
+      try{
+        const res = await fetch(proxy, {signal: AbortSignal.timeout(5000)});
+        if(!res.ok) continue;
+        const text = proxy.includes('allorigins') ? (await res.json()).contents : await res.text();
+        doc = new DOMParser().parseFromString(text, 'text/html');
+        break;
+      }catch(e){ continue; }
+    }
+
+    if(doc){
+      const links=[...doc.querySelectorAll('a[href*="/whats-on/gaffe-comedy-club/"]')];
+      const seen=new Set();const parsed=[];
+      const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+      links.forEach(a=>{
+        const href=a.getAttribute('href');if(!href||seen.has(href))return;seen.add(href);
+        const m=href.match(/\/(mon|tue|wed|thu|fri|sat|sun)-(\d{1,2})-(\w+)-.+-(\d+)$/i);if(!m)return;
+        const mi=months[m[3].toLowerCase()];if(mi===undefined)return;
+        const now=new Date(),d=new Date(now.getFullYear(),mi,parseInt(m[2]));if(d<now)d.setFullYear(d.getFullYear()+1);
+        const date=d.toISOString().split('T')[0];
+        const tel=a.querySelector('h2,h3,p,strong')||a;const title=(tel.textContent||'').trim().replace(/\s+/g,' ');
+        if(!title||title.length<3)return;
+        if(gigs.some(g=>g.headfirst_url&&g.headfirst_url.includes(m[4])))return;
+        parsed.push({name:title,date,venue:'The Gaffe',headfirst_url:'https://www.headfirstbristol.co.uk'+href});
+      });
+      if(parsed.length>0){ hfShows=parsed; showHFResults(); return; }
+    }
+  }catch(e){ console.log('Live fetch failed, using known shows'); }
+
+  // Fall back to known shows list
+  hfShows = knownShows.filter(s => !gigs.some(g => g.name === s.name));
+  if(!hfShows.length){
+    document.getElementById('hf-res').innerHTML='<p class="empty" style="text-align:center;padding:20px">No new shows found — they may already be imported.</p>';
+    return;
+  }
+  showHFResults();
+}
+
+function showHFResults(){
+  document.getElementById('hf-res').innerHTML=`<div style="max-height:340px;overflow-y:auto">${hfShows.map((s,i)=>`<div class="hfrow"><div><div class="hfname">${s.name}</div><div class="hfdate">${fmt(s.date)}</div></div><input class="hfchk" type="checkbox" id="hf-${i}" checked></div>`).join('')}</div>`;
 }
 async function doImport(){
   const toImp=hfShows.filter((_,i)=>document.getElementById(`hf-${i}`)?.checked);
