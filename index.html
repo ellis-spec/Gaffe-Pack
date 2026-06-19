@@ -600,10 +600,19 @@ async function doSignOut(){await db.auth.signOut();location.reload();}
 const SB_URL='https://zyuyzpntcksmgpozxjkl.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5dXl6cG50Y2tzbWdwb3p4amtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNzg2NjEsImV4cCI6MjA5NDg1NDY2MX0.OvQukd4_jniMPGVtNGjC3z7nB-ZPGDNsmx6fNrLxwxE';
 
+// Initialise db immediately so it's ready before any button is clicked
+try {
+  db = supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+} catch(e) {
+  console.error('Supabase init failed:', e);
+}
+
 window.addEventListener('DOMContentLoaded',async()=>{
   const params=new URLSearchParams(location.search);
   const qrGig=params.get('qr');
-  db=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  if(!db) {
+    db=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  }
   if(qrGig){await initQR(qrGig);return;}
   db.auth.onAuthStateChange(async(event,session)=>{
     if(session){
