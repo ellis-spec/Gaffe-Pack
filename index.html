@@ -634,13 +634,21 @@ function switchATab(t){document.getElementById('form-in').classList.toggle('hidd
 
 async function doSignIn(){
   const em=document.getElementById('in-em').value.trim(),pw=document.getElementById('in-pw').value;
+  const dbg=document.getElementById('in-debug');
   if(!em||!pw){setErr('in-err','Please fill in email and password.');return;}
-  setErr('in-err','Signing in...');
+  setErr('in-err','');
+  if(dbg)dbg.textContent='Attempting sign in...';
   try{
+    if(dbg)dbg.textContent='Calling auth endpoint...';
     const d=await authSignIn(em,pw);
+    if(dbg)dbg.textContent='Got response, loading profile...';
     me={id:d.user.id,email:d.user.email};
     await afterSignIn();
-  }catch(e){setErr('in-err',e.message);}
+  }catch(e){
+    setErr('in-err',e.message);
+    if(dbg)dbg.textContent='Error: '+e.message+' | '+e.name;
+    console.error('Sign in error:',e);
+  }
 }
 
 async function doSignUp(){
