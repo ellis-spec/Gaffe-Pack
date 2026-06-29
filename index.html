@@ -379,7 +379,7 @@ create policy "all" on timesheets for all using(true) with check(true);</textare
    </div>
    <div class="sec">
     <div class="sech">
-     <span class="sect">Upcoming Shows</span>
+     <span class="sect">Shows</span>
      <div style="display:flex;gap:8px">
       <button class="addbtn pk" onclick="openHF()">↓ Headfirst</button>
       <button class="addbtn" onclick="toggle('gig-form')">+ Add show</button>
@@ -393,6 +393,10 @@ create policy "all" on timesheets for all using(true) with check(true);</textare
      <div class="fr"><label>Venue / note</label><input type="text" id="ng-venue" placeholder="Main room"></div>
      <p class="fhint">&#9733; Friday &amp; Saturday shows automatically get an Assistant Venue Manager slot.</p>
      <button class="subbtn pri" onclick="addGig()">Add show</button>
+    </div>
+    <div style="display:flex;border-bottom:1px solid var(--bd);margin-bottom:14px">
+     <button class="tab active" id="gt-up" onclick="switchGigTab('upcoming')" style="padding:8px 14px">Upcoming</button>
+     <button class="tab" id="gt-past" onclick="switchGigTab('past')" style="padding:8px 14px">Past shows</button>
     </div>
     <div id="gig-list"><div class="loading">Loading shows...</div></div>
    </div>
@@ -751,7 +755,8 @@ function renderAll(){
 
 // ── STATS ──
 function renderStats(){
-  document.getElementById('s-gigs').textContent=gigs.length;
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('s-gigs').textContent=gigs.filter(g=>g.date>=today).length;
   document.getElementById('s-staff').textContent=profiles.length;
   let cl=0,lc=0;gigs.forEach(g=>rota.filter(r=>r.gig_id===g.id).forEach(p=>{if(isClocked(g.id,p.staff_name)){cl++;lc+=costFor(g.id,p.staff_name);}}));
   document.getElementById('s-clocked').textContent=cl;
@@ -759,22 +764,42 @@ function renderStats(){
 }
 
 // ── GIGS ──
+let gigTab='upcoming';
+function switchGigTab(t){
+  gigTab=t;
+  document.getElementById('gt-up').classList.toggle('active',t==='upcoming');
+  document.getElementById('gt-past').classList.toggle('active',t==='past');
+  renderGigs();
+}
+
 function renderGigs(){
   const el=document.getElementById('gig-list');
+  const today=new Date().toISOString().split('T')[0];
+  const filtered=gigTab==='upcoming'
+    ? gigs.filter(g=>g.date>=today).sort((a,b)=>a.date.localeCompare(b.date))
+    : gigs.filter(g=>g.date<today).sort((a,b)=>b.date.localeCompare(a.date));
+  
   if(!gigs.length){el.innerHTML='<p class="empty">No shows yet — add one above or import from Headfirst.</p>';return;}
-  el.innerHTML=gigs.map(g=>{
+  if(!filtered.length){
+    el.innerHTML=gigTab==='upcoming'
+      ?'<p class="empty">No upcoming shows — add one above or import from Headfirst.</p>'
+      :'<p class="empty">No past shows yet.</p>';
+    return;
+  }
+  el.innerHTML=filtered.map(g=>{
     const av=avail.filter(a=>a.gig_id===g.id);
     const names=av.map(a=>{const p=profiles.find(x=>x.id===a.user_id);return p?p.name:null;}).filter(Boolean);
     const roles=rolesFor(g),big=isBig(g.date);
-    return`<div class="gigcard">
-<div class="gigtitle">${g.name}${big?'<span class="bigshow">&#9733; Big show</span>':''}</div>
+    const isPast=g.date<today;
+    return`<div class="gigcard" style="${isPast?'opacity:0.7':''}">
+<div class="gigtitle">${g.name}${big?'<span class="bigshow">&#9733; Big show</span>':''}${isPast?'<span class="badge bm" style="margin-left:8px">Past</span>':''}</div>
 <div class="gigmeta">${fmt(g.date)} &middot; ${g.venue||'TBC'}${g.headfirst_url?` &middot; <a href="${g.headfirst_url}" target="_blank" style="color:var(--pink);font-size:11px">Headfirst &#8599;</a>`:''}</div>
 <div class="gigroles">${roles.map(r=>rbadge(r)).join('')}</div>
-<div class="gigavail">${names.length?names.map(n=>`<span class="achip">${n}</span>`).join(''):'<span style="font-size:12px;color:var(--cream3)">No availability yet</span>'}</div>
+<div class="gigavail">${names.length?names.map(n=>`<span class="achip">${n}</span>`).join(''):'<span style="font-size:12px;color:var(--cream3)">${isPast?"No availability recorded":"No availability yet"}</span>'}</div>
 <div class="gigfoot">
-<span class="badge ${names.length>=roles.length?'bg':names.length>0?'ba':'br'}">${names.length}/${roles.length} available</span>
+<span class="badge ${names.length>=roles.length?'bg':names.length>0?'ba':'br'}">${names.length}/${roles.length} ${isPast?'worked':'available'}</span>
 <div class="btnrow">
-<button class="icbtn qr" onclick="showQRModal('${g.id}','${g.name.replace(/'/g,"\'")}','${g.date}')">QR Code</button>
+${isPast?'':`<button class="icbtn qr" onclick="showQRModal('${g.id}','${g.name.replace(/'/g,"\'")}','${g.date}')">QR Code</button>`}
 <button class="icbtn del" onclick="deleteGig('${g.id}')">Remove</button>
 </div>
 </div>
@@ -1116,12 +1141,17 @@ async function doImport(){
 // ── STAFF VIEWS ──
 function renderStaffRota(){
   const el=document.getElementById('staff-rota');if(!el)return;
-  el.innerHTML=gigs.map(g=>{const asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);return`<div class="rotacard"><div class="rotashow">${g.name}${big?` <span style="color:var(--pink)">&#9733;</span>`:''}</div><div class="rotadate">${fmt(g.date)}</div>${asgn.length?asgn.map(p=>`<div class="rotarow"><span class="rotaname">${p.staff_name}</span>${rbadge(p.role)}</div>`).join(''):'<span class="unfilled">Rota not published yet</span>'}</div>`;}).join('')||'<p class="empty">No shows yet.</p>';
+  const todayStr=new Date().toISOString().split('T')[0];
+  const upGigs=gigs.filter(g=>g.date>=todayStr);
+  el.innerHTML=upGigs.map(g=>{const asgn=rota.filter(r=>r.gig_id===g.id),big=isBig(g.date);return`<div class="rotacard"><div class="rotashow">${g.name}${big?` <span style="color:var(--pink)">&#9733;</span>`:''}</div><div class="rotadate">${fmt(g.date)}</div>${asgn.length?asgn.map(p=>`<div class="rotarow"><span class="rotaname">${p.staff_name}</span>${rbadge(p.role)}</div>`).join(''):'<span class="unfilled">Rota not published yet</span>'}</div>`;}).join('')||'<p class="empty">No upcoming shows yet.</p>';
 }
 
 function renderStaffGigs(){
   const el=document.getElementById('staff-gigs');if(!el)return;
-  el.innerHTML=gigs.map(g=>{const big=isBig(g.date),chk=selIds.includes(g.id)||avail.some(a=>a.gig_id===g.id&&a.user_id===me?.id);return`<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd);gap:12px"><div><div style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}${big?'<span class="bigshow" style="margin-left:7px">&#9733;</span>':''}</div><div style="font-size:12px;color:var(--cream3);margin-top:3px">${fmt(g.date)}${g.venue?' &middot; '+g.venue:''}</div></div><label style="display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;padding-top:3px;font-size:11px;color:var(--cream3);font-weight:600;letter-spacing:.05em;text-transform:uppercase"><input type="checkbox" ${chk?'checked':''} onchange="toggleSel('${g.id}',this.checked)" style="accent-color:var(--pink);width:15px;height:15px"> Can work</label></div>`;}).join('')||'<p class="empty">No shows yet.</p>';
+  const tod=new Date().toISOString().split('T')[0];
+  const upcomingGigs=gigs.filter(g=>g.date>=tod);
+  if(!upcomingGigs.length){el.innerHTML='<p class="empty">No upcoming shows yet.</p>';return;}
+  el.innerHTML=upcomingGigs.map(g=>{const big=isBig(g.date),chk=selIds.includes(g.id)||avail.some(a=>a.gig_id===g.id&&a.user_id===me?.id);return`<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--bd);gap:12px"><div><div style="font-size:14px;font-weight:600;color:var(--cream)">${g.name}${big?'<span class="bigshow" style="margin-left:7px">&#9733;</span>':''}</div><div style="font-size:12px;color:var(--cream3);margin-top:3px">${fmt(g.date)}${g.venue?' &middot; '+g.venue:''}</div></div><label style="display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;padding-top:3px;font-size:11px;color:var(--cream3);font-weight:600;letter-spacing:.05em;text-transform:uppercase"><input type="checkbox" ${chk?'checked':''} onchange="toggleSel('${g.id}',this.checked)" style="accent-color:var(--pink);width:15px;height:15px"> Can work</label></div>`;}).join('')||'<p class="empty">No shows yet.</p>';
 }
 
 function renderStaffClockSel(){const sel=document.getElementById('sc-gig');if(!sel)return;sel.innerHTML='<option value="">— select show —</option>'+gigs.map(g=>`<option value="${g.id}">${g.name} — ${fmt(g.date)}</option>`).join('');}
