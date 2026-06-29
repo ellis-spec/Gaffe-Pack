@@ -325,7 +325,7 @@ create policy "all" on timesheets for all using(true) with check(true);</textare
 <div class="movl hidden" id="qr-modal">
  <div class="mbox">
   <div class="mtitle" id="qrm-t"></div><div class="msub" id="qrm-s"></div>
-  <canvas id="qr-canvas" style="border-radius:8px;margin:0 auto 18px"></canvas>
+  <div id="qr-canvas" style="margin:0 auto 18px;width:220px;height:220px;display:flex;align-items:center;justify-content:center"></div>
   <button class="subbtn" onclick="closeModal('qr-modal')">Close</button>
   <div class="mhint">Staff scan with phone camera to clock in/out for this show.</div>
  </div>
@@ -606,8 +606,28 @@ function showQRModal(gigId,gigName,gigDate){
   document.getElementById('qrm-t').textContent=gigName;
   document.getElementById('qrm-s').textContent=fmt(gigDate);
   document.getElementById('qr-modal').classList.remove('hidden');
-  // Simple QR using goqr.me API image
-  document.getElementById('qr-canvas').innerHTML=`<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}&bgcolor=0e0d0b&color=f0ead8" style="border-radius:8px;width:220px;height:220px">`;
+  const canvas=document.getElementById('qr-canvas');
+  canvas.innerHTML='<div style="font-size:12px;color:var(--cream3);text-align:center;padding:20px">Loading QR code...</div>';
+  // Try multiple QR APIs in case one is blocked
+  const apis=[
+    `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}&bgcolor=1a1916&color=f0ead8&margin=10`,
+    `https://quickchart.io/qr?text=${encodeURIComponent(url)}&size=220&dark=f0ead8&light=1a1916`,
+  ];
+  const img=new Image();
+  img.style.cssText='border-radius:8px;width:220px;height:220px;display:block';
+  img.onload=()=>{canvas.innerHTML='';canvas.appendChild(img);};
+  img.onerror=()=>{
+    // Try second API
+    const img2=new Image();
+    img2.style.cssText='border-radius:8px;width:220px;height:220px;display:block';
+    img2.onload=()=>{canvas.innerHTML='';canvas.appendChild(img2);};
+    img2.onerror=()=>{
+      // Show URL as text fallback
+      canvas.innerHTML=`<div style="font-size:11px;color:var(--cream2);word-break:break-all;padding:10px;text-align:center;border:1px solid var(--bd);border-radius:8px">${url}</div>`;
+    };
+    img2.src=apis[1];
+  };
+  img.src=apis[0];
 }
 function showQRForSel(){const gigId=document.getElementById('clock-sel').value,g=gigs.find(x=>x.id===gigId);if(g)showQRModal(g.id,g.name,g.date);}
 
